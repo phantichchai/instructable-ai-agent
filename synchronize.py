@@ -2,7 +2,7 @@ import cv2
 import json
 import os
 
-def synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame_logs_file, output_folder):
+def synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame_logs_file, output_logs):
     # Read logs
     with open(key_log_file, 'r') as f:
         key_log = json.load(f)
@@ -27,8 +27,8 @@ def synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame
         mouse_events = [event for event in mouse_log if event['frame'] == frame_num]
 
         # Save frame and logs
-        frame_filename = f"{output_folder}/frame_{frame_num:04d}.png"
-        cv2.imwrite(frame_filename, frame)
+        frame_filename = f"frame_{frame_num:04d}.png"
+        cv2.imwrite(f"{frame_logs_file}/{frame_filename}", frame)
         
         frame_logs.append({
             'frame': frame_num,
@@ -41,7 +41,7 @@ def synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame
     cap.release()
 
     # Save synchronized logs
-    with open(frame_logs_file, 'w') as f:
+    with open(f"{output_logs}/frame_logs.json", 'w') as f:
         json.dump(frame_logs, f, indent=4)
 
 if __name__ == "__main__":
@@ -55,4 +55,4 @@ if __name__ == "__main__":
     if not os.path.exists(output_frames):
         os.makedirs(output_frames)
 
-    synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame_logs_file, output_frames)
+    synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame_logs_file, output_logs)

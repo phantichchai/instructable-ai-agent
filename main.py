@@ -74,7 +74,6 @@ def record_window_mp4(output_folder, window_title, record_time=10, fps=30):
             out.write(frame)
             elapsed_time = time.time() - loop_start_time
             time.sleep(max(0, frame_duration - elapsed_time))
-            print(frame_number)
 
         out.release()
 
