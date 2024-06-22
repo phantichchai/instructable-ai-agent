@@ -34,6 +34,7 @@ def countdown(time_left):
         main.start_listeners()
     
 def synchronize_logs():
+    instruction = entry_instruction_text.get()
     video_file = f"{output_logs}/gameplay.mp4"
     key_log_file = f"{output_logs}/key_log.json"
     mouse_log_file = f"{output_logs}/mouse_log.json"
@@ -49,7 +50,7 @@ def synchronize_logs():
         return
 
     # Synchronize logs in a separate thread to avoid blocking the GUI
-    threading.Thread(target=synchronize.synchronize_logs_with_frames, args=(video_file, key_log_file, mouse_log_file, output_frames, output_logs)).start()
+    threading.Thread(target=synchronize.synchronize_logs_with_frames, args=(instruction, video_file, key_log_file, mouse_log_file, output_frames)).start()
 
 # Create the main window
 root = tk.Tk()
@@ -64,23 +65,27 @@ clicked.set("Genshin Impact")
 # Create and place the widgets
 tk.Label(root, text="Window Title:").grid(row=0, column=0, padx=10, pady=10)
 entry_window_title = tk.OptionMenu(root, clicked, *options)
-entry_window_title.grid(row=0, column=1, padx=10, pady=10)
+entry_window_title.grid(row=0, column=1, columnspan=1, padx=10, pady=10)
 
-tk.Label(root, text="Record Time (seconds):").grid(row=1, column=0, padx=10, pady=10)
+tk.Label(root, text="Instruction:").grid(row=1, column=0, padx=10, pady=10)
+entry_instruction_text = tk.Entry(root)
+entry_instruction_text.grid(row=1, column=1, columnspan=1, padx=10, pady=10)
+
+tk.Label(root, text="Countdown Time (seconds):").grid(row=2, column=0, padx=10, pady=10)
 entry_record_time = tk.Entry(root)
-entry_record_time.grid(row=1, column=1, padx=10, pady=10)
+entry_record_time.grid(row=2, column=1, columnspan=1, padx=10, pady=10)
 
 btn_start_recording = tk.Button(root, text="Start Recording", command=start_countdown)
-btn_start_recording.grid(row=2, column=1, columnspan=1, pady=10)
+btn_start_recording.grid(row=3, column=1, columnspan=1, pady=10)
 
 btn_stop_recording = tk.Button(root, text="Stop Recording", command=main.stop_recording)
-btn_stop_recording.grid(row=2, column=2, columnspan=1, pady=10)
+btn_stop_recording.grid(row=3, column=2, columnspan=1, padx=10, pady=10)
 
 recording_label = tk.Label(root, text="")
-recording_label.grid(row=2, column=0, padx=10, pady=10)
+recording_label.grid(row=3, column=0, padx=10, pady=10)
 
 btn_synchronize_logs = tk.Button(root, text="Synchronize Logs", command=synchronize_logs)
-btn_synchronize_logs.grid(row=3, column=0, columnspan=2, pady=10)
+btn_synchronize_logs.grid(row=4, column=1, columnspan=1, padx=10, pady=10)
 
 # Start the GUI event loop
 root.mainloop()

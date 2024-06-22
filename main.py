@@ -32,7 +32,9 @@ def on_mouse_move(x, y):
 def on_mouse_click(x, y, button, pressed):
     global mouse_log, frame_number
     if pressed:
-        mouse_log.append({'frame': frame_number, 'event_type': 'click', 'position': (x, y)})
+        mouse_log.append({'frame': frame_number, 'event_type': 'click', 'position': (x, y), 'button': str(button)})
+    else:
+        mouse_log.append({'frame': frame_number, 'event_type': 'release', 'position': (x, y), 'button': str(button)})
 
 # Function to start keyboard and mouse listeners
 def start_listeners():
@@ -77,6 +79,7 @@ def record_window(output_folder: str, window_title: str, label: Label, fps: int)
     out = cv2.VideoWriter(f"{output_folder}/gameplay.mp4", fourcc, fps, (window_coords['width'], window_coords['height']))
 
     recording = True
+    frame_number = 0
 
     with mss.mss() as sct:
         
@@ -101,11 +104,14 @@ def record_window(output_folder: str, window_title: str, label: Label, fps: int)
     label.config(text="Recording Stopped")
 
 def save_log(output_logs):
+    global key_log, mouse_log, frame_number
     with open(f"{output_logs}/key_log.json", 'w') as f:
         json.dump(key_log, f, indent=4)
     with open(f"{output_logs}/mouse_log.json", 'w') as f:
         json.dump(mouse_log, f, indent=4)
-
+    frame_number = 0
+    key_log = []
+    mouse_log = []
 # Function to start recording and logging
 def main(output_logs, window_title):
     # Start listeners in a separate thread
