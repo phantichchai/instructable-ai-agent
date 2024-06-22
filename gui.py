@@ -14,35 +14,25 @@ def start_countdown():
         countdown_time = int(entry_record_time.get())
         countdown(countdown_time)
     except ValueError:
-        label.config(text="Please enter a valid integer")
+        recording_label.config(text="Please enter a valid integer")
 
+# Function to handle the countdown before recording
 def countdown(time_left):
     if time_left > 0:
         mins, secs = divmod(time_left, 60)
-        time_format = f"{mins:02d}:{secs:02d}"
-        label.config(text=time_format)
+        time_format = f"Countdown: {mins:02d}:{secs:02d}"
+        recording_label.config(text=time_format)
         root.after(1000, countdown, time_left - 1)
     else:
-        label.config(text="Recording Stopped")
-
-def start_recording():
-    record_time = int(entry_record_time.get())
-    window_title = clicked.get()
-
-    if not window_title:
-        messagebox.showerror("Error", "Please enter the application window title.")
-        return
-
-    # Create directories if they don't exist
-    os.makedirs(output_frames, exist_ok=True)
-    os.makedirs(output_logs, exist_ok=True)
-
-    # Start the countdown
-    start_countdown()
-
-    # Start recording in a separate thread to avoid blocking the GUI
-    threading.Thread(target=main.main, args=(output_logs, window_title, record_time)).start()
-
+        recording_label.config(text="Recording Started!")
+        
+        window_title = clicked.get()
+        if not window_title:
+            messagebox.showerror("Error", "Please enter the application window title.")
+            return
+        main.start_screen_recording(output_logs, window_title, recording_label)
+        main.start_listeners()
+    
 def synchronize_logs():
     video_file = f"{output_logs}/gameplay.mp4"
     key_log_file = f"{output_logs}/key_log.json"
@@ -80,11 +70,14 @@ tk.Label(root, text="Record Time (seconds):").grid(row=1, column=0, padx=10, pad
 entry_record_time = tk.Entry(root)
 entry_record_time.grid(row=1, column=1, padx=10, pady=10)
 
-btn_start_recording = tk.Button(root, text="Start Recording", command=start_recording)
+btn_start_recording = tk.Button(root, text="Start Recording", command=start_countdown)
 btn_start_recording.grid(row=2, column=1, columnspan=1, pady=10)
 
-label = tk.Label(root, text="00:00")
-label.grid(row=2, column=0, padx=10, pady=10)
+btn_stop_recording = tk.Button(root, text="Stop Recording", command=main.stop_recording)
+btn_stop_recording.grid(row=2, column=2, columnspan=1, pady=10)
+
+recording_label = tk.Label(root, text="")
+recording_label.grid(row=2, column=0, padx=10, pady=10)
 
 btn_synchronize_logs = tk.Button(root, text="Synchronize Logs", command=synchronize_logs)
 btn_synchronize_logs.grid(row=3, column=0, columnspan=2, pady=10)
