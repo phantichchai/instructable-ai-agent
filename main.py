@@ -112,6 +112,7 @@ def save_log(output_logs):
     frame_number = 0
     key_log = []
     mouse_log = []
+
 # Function to start recording and logging
 def main(output_logs, window_title):
     # Start listeners in a separate thread

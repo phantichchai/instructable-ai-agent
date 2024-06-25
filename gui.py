@@ -50,7 +50,7 @@ def synchronize_logs():
         return
 
     # Synchronize logs in a separate thread to avoid blocking the GUI
-    threading.Thread(target=synchronize.synchronize_logs_with_frames, args=(instruction, video_file, key_log_file, mouse_log_file, output_frames)).start()
+    threading.Thread(target=synchronize.synchronize_logs_with_frames, args=(instruction, video_file, key_log_file, mouse_log_file)).start()
 
 # Create the main window
 root = tk.Tk()
