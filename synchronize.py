@@ -79,7 +79,7 @@ def cut_video_after_frame(input_video_path, output_video_path, cut_off_frame):
     frame_number = 0
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret or frame_number > cut_off_frame:
+        if not ret or frame_number > cut_off_frame - 1:
             break
         out.write(frame)
         frame_number += 1
