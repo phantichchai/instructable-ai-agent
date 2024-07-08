@@ -2,6 +2,7 @@ import shutil
 import os
 from datetime import datetime
 import torch
+import numpy as np
 
 
 def count_folders(directory):
@@ -129,9 +130,9 @@ def custom_collate_fn(batch):
     max_video_length = max(tensor.shape[0] for tensor in video_tensors)
 
     # Pad each tensor to the maximum length found above
-    padded_instruction_tensors = [pad_tensor(tensor, max_instructions_length) for tensor in instructions]
-    padded_action_tensors = [pad_tensor(tensor, max_action_length) for tensor in action_tensors]
-    padded_video_tensors = [pad_tensor(tensor, max_video_length) for tensor in video_tensors]
+    padded_instruction_tensors = np.array([pad_tensor(tensor, max_instructions_length) for tensor in instructions])
+    padded_action_tensors = np.array([pad_tensor(tensor, max_action_length) for tensor in action_tensors])
+    padded_video_tensors = np.array([pad_tensor(tensor, max_video_length) for tensor in video_tensors])
 
     # Return the padded tensors
-    return padded_instruction_tensors, padded_action_tensors, padded_video_tensors
+    return torch.tensor(padded_instruction_tensors), torch.tensor(padded_action_tensors), torch.tensor(padded_video_tensors)
