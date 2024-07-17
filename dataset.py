@@ -82,7 +82,7 @@ class GameplayActionPairVideoDataset(Dataset):
         actions_tensor = torch.tensor(actions_tensor)
         return actions_tensor
 
-    def preprocess_frame(self, frame, target_size=(224, 224)):
+    def preprocess_frame(self, frame, target_size=(64, 64)):
         # Resize the frame
         resized_frame = cv2.resize(frame, target_size)
         

@@ -1,52 +1,35 @@
 import torch
 import torch.nn as nn
-import math
 
 class PatchEmbedding(nn.Module):
     def __init__(self, video_dimensions, patch_dim, emb_size):
         super(PatchEmbedding, self).__init__()
         self.patch_dim = patch_dim
         self.emb_size = emb_size
-        self.channels = video_dimensions[1]
-        self.video_height = video_dimensions[2]
-        self.video_width = video_dimensions[3]
+        self.channels = video_dimensions[0]
+        self.video_height = video_dimensions[1]
+        self.video_width = video_dimensions[2]
         
         self.patch_video = nn.Conv3d(in_channels=self.channels,
-                                    out_channels=self.channels,
+                                    out_channels=self.emb_size,
                                     kernel_size=self.patch_dim,
                                     stride=self.patch_dim)
         
         self.patch_first_frame = nn.Conv2d(in_channels=self.channels,
-                                           out_channels=self.channels,
+                                           out_channels=self.emb_size,
                                            kernel_size=self.patch_dim[1:],
                                            stride=self.patch_dim[1:])
-        
-        self.flatten = nn.Flatten(start_dim=2, end_dim=-1)
-        patch_height = self.calculate_3d_conv_output_size(video_dimensions[2], self.patch_dim[1], self.patch_dim[1], 0)
-        patch_width = self.calculate_3d_conv_output_size(video_dimensions[3], self.patch_dim[2], self.patch_dim[2], 0)
-
-        flatten_size = self.channels * patch_height * patch_width
-        self.linear = nn.Linear(in_features=flatten_size,
-                                out_features=emb_size)
-    
-    def calculate_3d_conv_output_size(self, input_size, kernel_size, stride, padding):
-        return math.floor((input_size - kernel_size + 2 * padding) / stride) + 1
     
     def forward(self, x):
         first_frame, frames = torch.split(x, [1, x.size(1)-1], dim=1)
         first_frame = first_frame.transpose(1, 2).squeeze(dim=2)
         first_frame = self.patch_first_frame(first_frame)
-        first_frame = first_frame.unsqueeze(dim=2).transpose(1, 2)
+        first_frame = first_frame.unsqueeze(dim=2)
         frames = frames.transpose(1, 2)
         frames = self.patch_video(frames)
-        frames = frames.transpose(1, 2)
-        video_tokens = torch.cat([first_frame, frames], dim=1)
-        # print(f"video_tokens shape: {video_tokens.shape}")
-        video_tokens = self.flatten(video_tokens)
-        # print(f"video_tokens flatten shape: {video_tokens.shape}")
-        video_tokens = self.linear(video_tokens)
-        # print(f"video_tokens linear shape: {video_tokens.shape}")
-        return video_tokens, video_tokens.shape
+        video_tokens = torch.cat([first_frame, frames], dim=2)
+        video_tokens = video_tokens.flatten(2).transpose(1, 2)
+        return video_tokens
 
 class TransformerEncoder3D(nn.Module):
     def __init__(self, emb_size, num_layers, num_heads, dim_feedforward, dropout):
@@ -108,7 +91,8 @@ class VideoTransformerModel(nn.Module):
         self.temporal_transformer = TemporalTransformerEncoder(d_model, num_layers_temporal, num_heads_temporal, dim_feedforward_temporal, dropout_temporal)
         
     def forward(self, x):
-        patches, spatial_dims = self.patch_embedding(x)
+        patches = self.patch_embedding(x)
+        spatial_dims = patches.shape
         # print(f"Patches: {patches.shape}")
         spatially_encoded_patches = self.spatial_transformer(patches)
         # print(f"Spatial: {spatially_encoded_patches.shape}")
