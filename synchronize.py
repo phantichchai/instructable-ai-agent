@@ -115,4 +115,4 @@ if __name__ == "__main__":
     if not os.path.exists(output_frames):
         os.makedirs(output_frames)
 
-    synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame_logs_file, output_logs)
+    synchronize_logs_with_frames(video_file, key_log_file, mouse_log_file, frame_logs_file)
