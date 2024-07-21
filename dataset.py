@@ -55,7 +55,7 @@ class GameplayActionPairVideoDataset(Dataset):
                         data.append(annotation)
         return data
 
-    def frame_logs_to_actions_tensor(self, actions):
+    def frame_logs_to_actions_tensor(self, actions, max_width, max_height):
         actions_tensor = []
         num_actions = len(ACTION_MAP) + 4
         tensor_size = (num_actions,)
@@ -73,9 +73,9 @@ class GameplayActionPairVideoDataset(Dataset):
             for mouse_event in action['mouse_events']:
                 mouse_events = [mouse_event['event_type'], mouse_event['position'][0], mouse_event['position'][1], mouse_event.get('button', 'idle')]
                 action_tensor[8] = EVENT_TYPE.get(mouse_events[0], 0)
-                action_tensor[9] = mouse_events[1]
-                action_tensor[10] = mouse_events[2]
-                action_tensor[11] = MOUSE_BUTTON.get(mouse_events[3], 0)
+                action_tensor[9] = MOUSE_BUTTON.get(mouse_events[3], 0)
+                action_tensor[10] = mouse_events[1] / max_width
+                action_tensor[11] = mouse_events[2] / max_height
                 
             actions_tensor.append(action_tensor)
         actions_tensor = np.array(actions_tensor)
@@ -100,6 +100,8 @@ class GameplayActionPairVideoDataset(Dataset):
 
         # Read the video using OpenCV
         cap = cv2.VideoCapture(video_path)
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         frames = []
         while cap.isOpened():
             ret, frame = cap.read()
@@ -120,7 +122,7 @@ class GameplayActionPairVideoDataset(Dataset):
                                      truncation=True,
                                      max_length=128
                                     )['input_ids'].squeeze(dim=0)
-        actions = self.frame_logs_to_actions_tensor(self.data[idx]['actions'])
+        actions = self.frame_logs_to_actions_tensor(self.data[idx]['actions'], frame_width, frame_height)
 
         if self.transform:
             frames = self.transform(frames)

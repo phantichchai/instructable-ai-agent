@@ -35,15 +35,9 @@ class Agent(nn.Module):
             video.to(device)
             logits = self(images, video, instruction)
         return logits
-
-    def logits_to_actions(self, logits):
-        probs = torch.sigmoid(logits)
-        actions = (probs > 0.5).float()
-        return actions
     
     def get_actions(self, video, instruction):
-        logits = self.predict(video, instruction)
-        actions = self.logits_to_actions(logits)
+        actions = self.predict(video, instruction)
         return actions
 
     def get_model_size(self):

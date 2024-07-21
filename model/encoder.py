@@ -55,16 +55,22 @@ class PatchEmbedding(nn.Module):
                                            out_channels=self.emb_size,
                                            kernel_size=self.patch_dim[1:],
                                            stride=self.patch_dim[1:])
+        
+        self.positional_encoding = nn.Parameter(torch.randn(1, 1, self.emb_size))
     
     def forward(self, x):
         first_frame, frames = torch.split(x, [1, x.size(1)-1], dim=1)
+        
         first_frame = first_frame.transpose(1, 2).squeeze(dim=2)
         first_frame = self.patch_first_frame(first_frame)
         first_frame = first_frame.unsqueeze(dim=2)
+        
         frames = frames.transpose(1, 2)
         frames = self.patch_video(frames)
+        
         video_tokens = torch.cat([first_frame, frames], dim=2)
         video_tokens = video_tokens.flatten(2).transpose(1, 2)
+        video_tokens = video_tokens + self.positional_encoding
         return video_tokens
 
 class TransformerEncoder3D(nn.Module):
