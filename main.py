@@ -7,6 +7,7 @@ from pynput import keyboard, mouse
 import mss
 import pygetwindow as gw
 from tkinter import Label
+from api import generate
 
 # Initialize variables
 key_log = []
@@ -103,13 +104,13 @@ def record_window(output_folder: str, window_title: str, label: Label, fps: int)
     out.release()
     label.config(text="Recording Stopped")
 
-def start_capturing(window_title: str, max_frames: int, fps: int):
+def start_capturing(instruction: str, window_title: str, max_frames: int, fps: int):
     # Run the capturing in a separate thread to avoid blocking the main Tkinter thread
-    capturing = threading.Thread(target=capture_from_window, args=(window_title, max_frames, fps))
+    capturing = threading.Thread(target=capture_from_window, args=(instruction, window_title, max_frames, fps))
     capturing.start()
 
 
-def capture_from_window(window_title: str, max_frames: int, fps: int):
+def capture_from_window(instruction: str, window_title: str, max_frames: int, fps: int):
     window_coords = get_window_coordinates(window_title)
     if not window_coords:
         raise Exception(f'Window with title "{window_title}" not found')
@@ -125,19 +126,19 @@ def capture_from_window(window_title: str, max_frames: int, fps: int):
             frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
             frames.append(frame)
             frame_count += 1
+            elapsed_time = time.time() - start_time
+            time.sleep(max(0, interval - elapsed_time))
+            
+            if frame_count % 3 == 0:
+                response = generate.send_frames_and_text_to_api(frames, instruction)
+                frames = []
+                print(f"Response: {response}")
 
-            cv2.imshow("Captured Frame", frame)
+            # cv2.imshow("Captured Frame", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             
-            elapsed_time = time.time() - start_time
-            time.sleep(max(0, interval - elapsed_time))
-    
     cv2.destroyAllWindows()
-
-    video_tensor = np.stack(frames, axis=0)
-    print(f"Video tensor shape: {video_tensor.shape}")
-    return video_tensor
 
 def save_log(output_logs):
     global key_log, mouse_log, frame_number

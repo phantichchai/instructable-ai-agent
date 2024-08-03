@@ -3,7 +3,8 @@ import main
 
 def running():
     window_title = clicked.get()
-    main.start_capturing(window_title, 100, 30)
+    instruction = entry_instruction_text.get()
+    main.start_capturing(instruction, window_title, 9, 30)
 
 # Create the main window
 root = tk.Tk()
