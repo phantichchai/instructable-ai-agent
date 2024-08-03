@@ -1,47 +1,65 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from pydantic import BaseModel
-from typing import List
+from model.agent import Agent
+from transformers import BertTokenizer
+import numpy as np
 import torch
+import cv2
 
 app = FastAPI()
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+device = "cuda" if torch.cuda.is_available() else "cpu"
+agent = Agent()
+agent.load_state_dict(torch.load('model_weights.pth'))
+agent.to(device)
 
-# Define the input and output models
-class Instruction(BaseModel):
-    text: str
 
-class Frame(BaseModel):
-    data: List[int]  # Assuming frame data is a list of integers (e.g., pixel values)
-
-class InferenceRequest(BaseModel):
-    instructions: Instruction
-    frames: List[Frame]
-
-class ActionSequence(BaseModel):
-    actions: List[str]
-
-# Load your transformer model (replace this with your actual model loading code)
-class TransformerModel:
-    def __init__(self):
-        # Replace with actual model loading code
-        self.model = torch.nn.Transformer()
-
-    def generate_sequence(self, instructions, frames):
-        # Replace with your actual sequence generation logic
-        return ["action1", "action2", "action3"]
-
-model = TransformerModel()
-
-@app.post("/generate", response_model=ActionSequence)
-async def generate_sequence(request: InferenceRequest):
+@app.post("/generate")
+async def generate_sequence(
+    text: str = Form(...),
+    frame1: UploadFile = File(...),
+    frame2: UploadFile = File(...), 
+    frame3: UploadFile = File(...)
+):
     try:
-        instructions = request.instructions.text
-        frames = [frame.data for frame in request.frames]
+        frames = [frame1, frame2, frame3]
+        tensor_frames = []
+
+        for frame in frames:
+            # Read the uploaded file
+            contents = await frame.read()
+            
+            # Convert bytes to numpy array
+            np_arr = np.frombuffer(contents, np.uint8)
+            
+            # Decode the numpy array as an image
+            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            
+            # Convert the image to RGB format (PyTorch expects images in RGB)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Resize the frame
+            resized_frame = cv2.resize(frame, (64, 64))
+
+            # Normalize the frame (assuming model expects input in range [0, 1])
+            normalized_frame = resized_frame / 255.0
+            
+            frame = np.array(normalized_frame)
+            frame = torch.tensor(frame, dtype=torch.float32).permute(2, 0, 1)
+
+            # Add the tensor to the list
+            tensor_frames.append(frame)
+        
+        tensor_frames = torch.stack(tensor_frames)
+        tensor_frames = tensor_frames.unsqueeze(dim=0).to(device)
         
         # Generate the action sequence
-        actions = model.generate_sequence(instructions, frames)
-        
-        return ActionSequence(actions=actions)
+        actions = agent.get_actions(tensor_frames, text)
+
+        actions = actions.tolist()
+        return {"actions": actions, "instruction": text}
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
