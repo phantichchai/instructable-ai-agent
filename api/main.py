@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
-from pydantic import BaseModel
 from model.agent import Agent
 from transformers import BertTokenizer
 import numpy as np
