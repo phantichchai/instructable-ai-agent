@@ -8,6 +8,7 @@ import mss
 import pygetwindow as gw
 from tkinter import Label
 from api import generate
+from tools.controller import tensor_to_action
 
 # Initialize variables
 key_log = []
@@ -132,7 +133,7 @@ def capture_from_window(instruction: str, window_title: str, max_frames: int, fp
             if frame_count % 3 == 0:
                 response = generate.send_frames_and_text_to_api(frames, instruction)
                 frames = []
-                print(f"Response: {response}")
+                tensor_to_action(response['actions'])
 
             # cv2.imshow("Captured Frame", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):

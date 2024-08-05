@@ -4,30 +4,7 @@ import os
 import cv2
 import json
 import numpy as np
-
-ACTION_MAP = {
-    'w': 0,
-    'a': 1,
-    's': 2,
-    'd': 3,
-    'Key.space': 4,
-    'Key.shift': 5,
-    'q': 6,
-    'e': 7
-}
-
-EVENT_TYPE = {
-    'idle': 0,
-    'click': 1,
-    'release': 2,
-    'move': 3
-}
-
-MOUSE_BUTTON = {
-    'idle': 0,
-    'Button.left': 1,
-    'Button.right': 2
-}
+from tools.mapping import ACTION_MAP, EVENT_TYPE, MOUSE_BUTTON
 
 class GameplayActionPairVideoDataset(Dataset):
     def __init__(self, root_dir, tokenizer, transform=None):
