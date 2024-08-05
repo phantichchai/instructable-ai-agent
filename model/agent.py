@@ -13,7 +13,7 @@ class Agent(nn.Module):
     ):
         super(Agent, self).__init__()
         self.debug = debug
-        self.encoder = MultiModelEncoder(debug=self.debug)
+        self.encoder = MultiModelEncoder(debug=self.debug, device=device)
         self.decoder = MultiModelDecoder(debug=self.debug)
         self.policy = Policy()
 

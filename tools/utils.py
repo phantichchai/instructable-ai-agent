@@ -122,17 +122,15 @@ def pad_tensor(tensor, target_num_frames, pad_value=0):
 
 def custom_collate_fn(batch):
     # Unzip the batch into instructions, action_tensors, and video_tensors
-    instructions, action_tensors, video_tensors = zip(*batch)
+    instructions, video_tensors, action_tensors  = zip(*batch)
     
     # Find the maximum length for instructions, actions, and video tensors
-    max_instructions_length = max(tensor.shape[0] for tensor in instructions)
     max_action_length = max(tensor.shape[0] for tensor in action_tensors)
     max_video_length = max(tensor.shape[0] for tensor in video_tensors)
 
     # Pad each tensor to the maximum length found above
-    padded_instruction_tensors = np.array([pad_tensor(tensor, max_instructions_length) for tensor in instructions])
     padded_action_tensors = np.array([pad_tensor(tensor, max_action_length) for tensor in action_tensors])
     padded_video_tensors = np.array([pad_tensor(tensor, max_video_length) for tensor in video_tensors])
 
     # Return the padded tensors
-    return torch.tensor(padded_instruction_tensors), torch.tensor(padded_action_tensors), torch.tensor(padded_video_tensors)
+    return instructions, torch.tensor(padded_video_tensors), torch.tensor(padded_action_tensors)

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from transformers import ViTModel, BertModel, BertTokenizer, ViTConfig
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class CvivitConfig:
     def __init__(
@@ -134,23 +133,19 @@ class VideoTransformerModel(nn.Module):
         
     def forward(self, x):
         patches = self.patch_embedding(x)
-        spatial_dims = patches.shape
-        # print(f"Patches: {patches.shape}")
         spatially_encoded_patches = self.spatial_transformer(patches)
-        # print(f"Spatial: {spatially_encoded_patches.shape}")
         temporally_encoded_patches = self.temporal_transformer(spatially_encoded_patches)
-        # print(f"Temporal: {temporally_encoded_patches.shape}")
-        batch_size = temporally_encoded_patches.size(0)
         return temporally_encoded_patches
     
 class MultiModelEncoder(nn.Module):
     def __init__(self, vit_model_name='google/vit-base-patch16-224-in21k',
                  bert_model_name='bert-base-uncased',
                  cvivit_config: CvivitConfig=CvivitConfig(),
+                 device: str=None,
                  debug: bool=False):
         super(MultiModelEncoder, self).__init__()
 
-        self.vit = ViTModel(ViTConfig(image_size=64))
+        self.vit = ViTModel(ViTConfig(image_size=cvivit_config.image_size))
         self.cvivit = VideoTransformerModel(
             video_dimension=(cvivit_config.color_channel, cvivit_config.image_size, cvivit_config.image_size),
             emb_size=cvivit_config.emb_size,
@@ -168,6 +163,7 @@ class MultiModelEncoder(nn.Module):
         self.bert = BertModel.from_pretrained(bert_model_name)
         self.bert_tokenizer = BertTokenizer.from_pretrained(bert_model_name)
         self.debug = debug
+        self.device = device
 
     def forward(self, image, video, text):
         vit_outputs = self.vit(image)
@@ -182,9 +178,9 @@ class MultiModelEncoder(nn.Module):
             padding=True,
             truncation=True,
             max_length=128
-        )
-        input_ids = text_encoding['input_ids'].to(device)
-        attention_mask = text_encoding['attention_mask'].to(device)
+        ).to(self.device)
+        input_ids = text_encoding['input_ids']
+        attention_mask = text_encoding['attention_mask']
         bert_outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         instruction_last_hidden_state = bert_outputs.last_hidden_state
         

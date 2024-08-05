@@ -71,7 +71,7 @@ class GameplayActionPairVideoDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> dict[str, str | torch.Tensor]:
         video_info = self.data[idx]
         video_path = video_info['video_path']
 
@@ -93,12 +93,7 @@ class GameplayActionPairVideoDataset(Dataset):
 
         # Convert to tensor and permute dimensions to T, C, H, W
         frames = torch.tensor(frames, dtype=torch.float32).permute(0, 3, 1, 2)
-        instruction = self.tokenizer(text=self.data[idx]['instruction'],
-                                     return_tensors='pt',
-                                     padding=True,
-                                     truncation=True,
-                                     max_length=128
-                                    )['input_ids'].squeeze(dim=0)
+        instruction = self.data[idx]['instruction']
         actions = self.frame_logs_to_actions_tensor(self.data[idx]['actions'], frame_width, frame_height)
 
         if self.transform:

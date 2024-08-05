@@ -165,3 +165,4 @@ output_frames/
 output_logs/
 .vscode/
 *.pth
+runs/
