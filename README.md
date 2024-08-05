@@ -1,4 +1,4 @@
-# Data-collection
+# Instructable AI Agent
 
 **Gameplay Recorder**
 
