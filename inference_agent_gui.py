@@ -1,10 +1,10 @@
 import tkinter as tk
-import main
+from inference import capture_from_window
 
 def running():
     window_title = clicked.get()
     instruction = entry_instruction_text.get()
-    main.start_capturing(instruction, window_title, 9, 30)
+    capture_from_window.start_capturing(instruction, window_title, 9, 30)
 
 # Create the main window
 root = tk.Tk()

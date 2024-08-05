@@ -1,9 +1,10 @@
 import tkinter as tk
-from tkinter import messagebox
 import threading
 import os
-import main
-import synchronize
+import data.synchronize as synchronize
+from data import create
+from tkinter import messagebox
+
 
 output_frames = "output_frames"
 output_logs = "output_logs"
@@ -30,8 +31,8 @@ def countdown(time_left):
         if not window_title:
             messagebox.showerror("Error", "Please enter the application window title.")
             return
-        main.start_screen_recording(output_logs, window_title, recording_label)
-        main.start_listeners()
+        create.start_screen_recording(output_logs, window_title, recording_label)
+        create.start_listeners()
     
 def synchronize_logs():
     instruction = entry_instruction_text.get()
@@ -78,7 +79,7 @@ entry_record_time.grid(row=2, column=1, columnspan=1, padx=10, pady=10)
 btn_start_recording = tk.Button(root, text="Start Recording", command=start_countdown)
 btn_start_recording.grid(row=3, column=1, columnspan=1, pady=10)
 
-btn_stop_recording = tk.Button(root, text="Stop Recording", command=main.stop_recording)
+btn_stop_recording = tk.Button(root, text="Stop Recording", command=create.stop_recording)
 btn_stop_recording.grid(row=3, column=2, columnspan=1, padx=10, pady=10)
 
 recording_label = tk.Label(root, text="")

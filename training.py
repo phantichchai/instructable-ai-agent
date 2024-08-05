@@ -1,11 +1,11 @@
 import torch
-from dataset import GameplayActionPairVideoDataset
+from data.dataset import GameplayActionPairVideoDataset
 from torch import optim
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer
 from model.agent import Agent, device
 from model.action_loss import ActionLoss
-from utils import custom_collate_fn
+from tools.utils import custom_collate_fn
 
 
 root_dir = "output_logs"

@@ -5,10 +5,8 @@ import json
 import threading
 from pynput import keyboard, mouse
 import mss
-import pygetwindow as gw
 from tkinter import Label
-from api import generate
-from tools.controller import tensor_to_action
+from tools.window import get_window_coordinates
 
 # Initialize variables
 key_log = []
@@ -58,16 +56,6 @@ def stop_recording():
     stop_listeners()
     save_log("output_logs")
 
-# Function to get the coordinates of a specific window
-def get_window_coordinates(window_title):
-    window = gw.getWindowsWithTitle(window_title)[0]
-    return {
-        'left': window.left,
-        'top': window.top,
-        'width': window.width,
-        'height': window.height
-    }
-
 def start_screen_recording(output_folder: str, window_title: str, label: Label,fps: int=30):
     # Run the recording in a separate thread to avoid blocking the main Tkinter thread
     threading.Thread(target=record_window, args=(output_folder, window_title, label, fps)).start()
@@ -105,42 +93,6 @@ def record_window(output_folder: str, window_title: str, label: Label, fps: int)
     out.release()
     label.config(text="Recording Stopped")
 
-def start_capturing(instruction: str, window_title: str, max_frames: int, fps: int):
-    # Run the capturing in a separate thread to avoid blocking the main Tkinter thread
-    capturing = threading.Thread(target=capture_from_window, args=(instruction, window_title, max_frames, fps))
-    capturing.start()
-
-
-def capture_from_window(instruction: str, window_title: str, max_frames: int, fps: int):
-    window_coords = get_window_coordinates(window_title)
-    if not window_coords:
-        raise Exception(f'Window with title "{window_title}" not found')
-
-    frames = []
-    frame_count = 0
-    interval = 1 / fps
-
-    with mss.mss() as sct:
-        while frame_count < max_frames:
-            start_time = time.time()
-            img = np.array(sct.grab(window_coords))
-            frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-            frames.append(frame)
-            frame_count += 1
-            elapsed_time = time.time() - start_time
-            time.sleep(max(0, interval - elapsed_time))
-            
-            if frame_count % 3 == 0:
-                response = generate.send_frames_and_text_to_api(frames, instruction)
-                frames = []
-                tensor_to_action(response['actions'])
-
-            # cv2.imshow("Captured Frame", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-            
-    cv2.destroyAllWindows()
-
 def save_log(output_logs):
     global key_log, mouse_log, frame_number
     with open(f"{output_logs}/key_log.json", 'w') as f:
@@ -150,24 +102,3 @@ def save_log(output_logs):
     frame_number = 0
     key_log = []
     mouse_log = []
-
-# Function to start recording and logging
-def main(output_logs, window_title):
-    # Start listeners in a separate thread
-    listener_thread = threading.Thread(target=start_listeners)
-    listener_thread.start()
-
-    # Start window recording
-    record_window(output_logs, window_title)
-
-    # Stop listeners after recording is done
-    stop_listeners()
-
-    # Wait for listeners to finish
-    listener_thread.join()
-
-    # Save logs
-    save_log(output_logs=output_logs)
-
-if __name__ == "__main__":
-    main()
