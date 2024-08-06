@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code to the working directory
 COPY /api /app/api
 COPY /model /app/model
-COPY dataset.py /app/
-COPY utils.py /app/
+COPY /data/dataset.py /app/data
+COPY /tools/utils.py /app/tools
 COPY model_weights.pth /app/
 
 # Expose the port on which the app will run
