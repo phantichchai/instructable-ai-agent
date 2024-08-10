@@ -56,7 +56,7 @@ def stop_recording():
     stop_listeners()
     save_log("output_logs")
 
-def start_screen_recording(output_folder: str, window_title: str, label: Label,fps: int=30):
+def start_screen_recording(output_folder: str, window_title: str, label: Label,fps: int=8):
     # Run the recording in a separate thread to avoid blocking the main Tkinter thread
     threading.Thread(target=record_window, args=(output_folder, window_title, label, fps)).start()
 
