@@ -6,15 +6,22 @@ from model.policy import Policy
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+class AgentConfig:
+    def __init__(self, encoder_config, decoder_config) -> None:
+        self.encoder_config = encoder_config
+        self.decoder_config = decoder_config
+
 class Agent(nn.Module):
     def __init__(
         self,
+        config: AgentConfig=None,
         debug: bool=False
     ):
         super(Agent, self).__init__()
         self.debug = debug
-        self.encoder = MultiModelEncoder(debug=self.debug, device=device)
-        self.decoder = MultiModelDecoder(debug=self.debug)
+        self.config = config
+        self.encoder = MultiModelEncoder(config=self.config.encoder_config, debug=self.debug, device=device)
+        self.decoder = MultiModelDecoder(config=self.config.decoder_config, debug=self.debug)
         self.policy = Policy()
 
     def forward(self, image, video, text):

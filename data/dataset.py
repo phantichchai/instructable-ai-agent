@@ -7,7 +7,7 @@ import numpy as np
 from tools.mapping import ACTION_MAP, EVENT_TYPE, MOUSE_BUTTON
 
 class GameplayActionPairVideoDataset(Dataset):
-    def __init__(self, root_dir, tokenizer, transform=None):
+    def __init__(self, root_dir, transform=None, image_size=None):
         """
         Args:
             root_dir (string): Root directory containing the subdirectories with JSON and MP4 files.
@@ -16,7 +16,7 @@ class GameplayActionPairVideoDataset(Dataset):
         self.root_dir = root_dir
         self.transform = transform
         self.data = self._load_data()
-        self.tokenizer = tokenizer
+        self.image_size = image_size
 
     def _load_data(self):
         data = []
@@ -59,7 +59,7 @@ class GameplayActionPairVideoDataset(Dataset):
         actions_tensor = torch.tensor(actions_tensor)
         return actions_tensor
 
-    def preprocess_frame(self, frame, target_size=(64, 64)):
+    def preprocess_frame(self, frame, target_size):
         # Resize the frame
         resized_frame = cv2.resize(frame, target_size)
         
@@ -84,7 +84,7 @@ class GameplayActionPairVideoDataset(Dataset):
             ret, frame = cap.read()
             if not ret:
                 break
-            processed_frame = self.preprocess_frame(frame)
+            processed_frame = self.preprocess_frame(frame, self.image_size)
             frames.append(processed_frame)
         cap.release()
 
