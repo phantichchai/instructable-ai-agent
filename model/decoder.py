@@ -29,8 +29,8 @@ class MultiModelDecoder(nn.Module):
         self.decoder = nn.TransformerDecoder(decoder_layer=self.decoder_layer, num_layers=config.num_layers)
         self.debug = debug
 
-    def forward(self, instruction, memory):
-        x = self.decoder(instruction, memory)
+    def forward(self, target, memory):
+        x = self.decoder(target, memory)
 
         if self.debug:
             print(f"Decoder outputs shape: {x.shape}")

@@ -3,7 +3,6 @@ import time
 from data.dataset import GameplayActionPairVideoDataset
 from torch import optim
 from torch.utils.data import DataLoader
-from transformers import BertTokenizer
 from model.agent import Agent, AgentConfig, device
 from model.action_loss import ActionLoss
 from model.cvivit import CvivitConfig
@@ -59,7 +58,6 @@ def train():
     for epoch in range(epochs):
         running_loss = 0.0
         for batch, (instruction, frames, action) in enumerate(dataloader):
-            optimizer.zero_grad()
             frames = frames.to(device)
             action = action.to(device)
             _, _, channel, height, width = frames.shape
@@ -68,6 +66,7 @@ def train():
             loss = criterion(logits, action)
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
 
             # Accumulate the loss
             running_loss += loss.item()
