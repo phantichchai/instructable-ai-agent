@@ -4,8 +4,10 @@ import torchvision.models as models
 from transformers import BertTokenizer, BertModel
 
 class MultiModalModel(nn.Module):
-    def __init__(self, image_output_size=256, text_output_size=256, num_actions=10):
+    def __init__(self, image_output_size=256, text_output_size=256, num_actions=10, device=None, debug=False):
         super(MultiModalModel, self).__init__()
+        self.device = device
+        self.debug = debug
         
         # Image Encoder: Pre-trained ResNet model
         self.image_encoder = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)  # Using ResNet-18 as an example
@@ -22,13 +24,18 @@ class MultiModalModel(nn.Module):
 
     def forward(self, image, text):
         # Process image through the image encoder
+        if self.debug:
+            print(f"Image shape: {image.shape}")
         image_embedding = self.image_encoder(image)
+        if self.debug:
+            print(f"Image embedding shape: {image_embedding.shape}")
 
         # Process text through the text encoder
         # Tokenize the input text and convert to tensors
         text_inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
+        text_inputs = text_inputs.to(self.device)
         text_outputs = self.text_encoder(**text_inputs)
-        text_embedding = self.text_fc(text_outputs.last_hidden_state[:, 0, :])  # Use [CLS] token representation
+        text_embedding = self.text_fc(text_outputs.last_hidden_state[:, 0, :])  # Use [CLS] token representation    
 
         # Concatenate embeddings
         combined_embedding = torch.cat((image_embedding, text_embedding), dim=1)
@@ -45,7 +52,7 @@ if __name__ == '__main__':
     print(f"Device: {device}")
 
     # Create a sample model
-    model = MultiModalModel(num_actions=10).to(device)
+    model = MultiModalModel(num_actions=10, device=device).to(device)
 
     # Sample data (replace with your actual data)
     # Example: random image tensor of shape (batch_size, channels, height, width)
