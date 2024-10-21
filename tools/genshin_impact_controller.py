@@ -1,86 +1,82 @@
 import pyautogui
 import time
-from tools.constants import KEY_BINDINGS, ACTION_MAPPING
+from tools.action_key_mapping import KeyBinding, ActionMapping
 
 class GenshinImpactController:
     def __init__(self, debug=False):
-        # Dictionary to store the key bindings
+        # Debug mode to print actions
         self.debug = debug
 
     # Movement functions
-    def move(self, direction, duration=1):
-        pyautogui.keyDown(KEY_BINDINGS[direction])
-        time.sleep(duration)
-        pyautogui.keyUp(KEY_BINDINGS[direction])
+    def move(self, direction: KeyBinding):
+        pyautogui.keyDown(direction.value)
 
     def jump(self):
-        pyautogui.press(KEY_BINDINGS['jump'])
+        pyautogui.press(KeyBinding.JUMP.value)
 
-    def sprint(self, duration=1):
-        pyautogui.keyDown(KEY_BINDINGS['sprint'])
-        time.sleep(duration)
-        pyautogui.keyUp(KEY_BINDINGS['sprint'])
+    def sprint(self):
+        pyautogui.keyDown(KeyBinding.SPRINT.value)
 
     # Combat functions
     def normal_attack(self):
-        pyautogui.click(button=KEY_BINDINGS['normal_attack'])
+        pyautogui.click(button=KeyBinding.NORMAL_ATTACK.value)
 
     def elemental_skill(self):
-        pyautogui.press(KEY_BINDINGS['elemental_skill'])
+        pyautogui.press(KeyBinding.ELEMENTAL_SKILL.value)
 
     def elemental_burst(self):
-        pyautogui.press(KEY_BINDINGS['elemental_burst'])
+        pyautogui.press(KeyBinding.ELEMENTAL_BURST.value)
 
     def aim_mode(self):
-        pyautogui.press(KEY_BINDINGS['aim_mode'])
+        pyautogui.press(KeyBinding.AIM_MODE.value)
 
     # Interaction functions
     def interact(self):
-        pyautogui.press(KEY_BINDINGS['interact'])
+        pyautogui.press(KeyBinding.INTERACT.value)
 
     # Character switching
     def switch_character(self, character_number):
-        character_key = f'switch_character_{character_number}'
-        if character_key in KEY_BINDINGS:
-            pyautogui.press(KEY_BINDINGS[character_key])
+        character_key = KeyBinding[f'SWITCH_CHARACTER_{character_number}']
+        if character_key:
+            pyautogui.press(character_key.value)
 
     # Map and inventory functions
     def open_map(self):
-        pyautogui.press(KEY_BINDINGS['open_map'])
+        pyautogui.press(KeyBinding.OPEN_MAP.value)
 
     def open_inventory(self):
-        pyautogui.press(KEY_BINDINGS['open_inventory'])
+        pyautogui.press(KeyBinding.OPEN_INVENTORY.value)
 
     # Method to execute action based on RL model's output
-    def execute_action(self, action_value):
-        action = ACTION_MAPPING.get(action_value)
+    def execute_action(self, action_value: ActionMapping):
+        action = ActionMapping(action_value)
 
         if self.debug:
-            print(f"Action: {action}, Key binding: {KEY_BINDINGS[action]}")
+            print(f"Action: {action.name}, Key binding: {KeyBinding[action.name].value}")
 
         if action:
-            if action.startswith("switch_character"):
-                character_number = int(action[-1])  # Get the character number from the action name
+            if action.name.startswith("SWITCH_CHARACTER"):
+                character_number = int(action.name[-1])  # Get the character number from the action name
                 self.switch_character(character_number)
-            elif action in ['move_forward', 'move_left', 'move_right', 'move_backward']:
-                self.move(action)
-            elif action == 'jump':
+            elif action in [ActionMapping.MOVE_FORWARD, ActionMapping.MOVE_LEFT, ActionMapping.MOVE_RIGHT, ActionMapping.MOVE_BACKWARD]:
+                self.move(KeyBinding[action.name])
+            elif action == ActionMapping.JUMP:
                 self.jump()
-            elif action == 'sprint':
+            elif action == ActionMapping.SPRINT:
                 self.sprint()
-            elif action == 'normal_attack':
+            elif action == ActionMapping.NORMAL_ATTACK:
                 self.normal_attack()
-            elif action == 'elemental_skill':
+            elif action == ActionMapping.ELEMENTAL_SKILL:
                 self.elemental_skill()
-            elif action == 'elemental_burst':
+            elif action == ActionMapping.ELEMENTAL_BURST:
                 self.elemental_burst()
-            elif action == 'aim_mode':
+            elif action == ActionMapping.AIM_MODE:
                 self.aim_mode()
-            elif action == 'interact':
+            elif action == ActionMapping.INTERACT:
                 self.interact()
-            elif action == 'open_map':
+            elif action == ActionMapping.OPEN_MAP:
                 self.open_map()
-            elif action == 'open_inventory':
+            elif action == ActionMapping.OPEN_INVENTORY:
                 self.open_inventory()
 
 # Example usage

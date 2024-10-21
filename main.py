@@ -9,7 +9,7 @@ import random
 from model.base.multi_model_policy_network import MultiModalModel
 from tools.genshin_impact_controller import GenshinImpactController
 from tools.window import get_window_coordinates
-from tools.constants import KEY_BINDINGS
+from tools.action_key_mapping import KeyBinding
 
 
 def capture_screen():
@@ -44,7 +44,7 @@ def close_windows():
 
 def generate_text_prompt():
     # Ask the user for a text prompt from the terminal
-    return random.choice(list(KEY_BINDINGS.keys()))
+    return random.choice(KeyBinding)
 
 
 def main():

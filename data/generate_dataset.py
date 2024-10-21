@@ -1,18 +1,21 @@
 import os
 from queue import Queue
+import queue
 import time
 import cv2
 import mss
 import numpy as np
 import threading
+import pyautogui
+from tools.action_key_mapping import ActionMapping, KeyBinding
 from tools.genshin_impact_controller import GenshinImpactController
 from tools.window import get_window_coordinates
 
 class GenerateDataset:
-    def __init__(self, controller: GenshinImpactController, dataset_dir="dataset", actual_fps=30, buffer_size=30):
+    def __init__(self, controller: GenshinImpactController, dataset_dir="dataset", fps=30, buffer_size=30):
         self.controller = controller
         self.dataset_dir = dataset_dir
-        self.actual_fps = actual_fps
+        self.fps = fps
         self.frame_buffer = Queue(maxsize=buffer_size)
         self.is_recording = False
         self.actions = []
@@ -38,8 +41,10 @@ class GenerateDataset:
                 screen_img = self.frame_buffer.get(timeout=0.1)  # Get frame from buffer
                 if video_writer is None:
                     height, width, _ = screen_img.shape
-                    video_writer = cv2.VideoWriter(video_filename, cv2.VideoWriter_fourcc(*'mp4v'), self.actual_fps, (width, height))
+                    video_writer = cv2.VideoWriter(video_filename, cv2.VideoWriter_fourcc(*'mp4v'), self.fps, (width, height))
                 video_writer.write(screen_img)
+            except queue.Empty:
+                print("Buffer is empty; waiting for frames...")
             except Exception as e:
                 print(f"Error writing frame: {e}")
         
@@ -55,10 +60,10 @@ class GenerateDataset:
         writer_thread.start()
 
         frame_count = 0
-        delay = 1 / self.actual_fps  # Delay in seconds between frames
+        delay = 1 / self.fps  # Delay in seconds between frames
         start_time = time.time()  # Start timer for duration
 
-        while frame_count < duration * self.actual_fps:  # Record for specified duration
+        while frame_count < duration * self.fps:  # Record for specified duration
             screen_img = self.capture_screen()  # Capture screen using mss
             
             # Add frame to the buffer
@@ -80,19 +85,46 @@ class GenerateDataset:
         self.text_prompts.append(text_prompt)
         print(f"Captured video for action: {action}, saved to {video_filename}")
 
-    def perform_action(self, action, duration):
-        """Performs the action using the controller."""
-        if action == "move_forward":
-            self.controller.move("move_forward", duration)
-        elif action == "move_left":
-            self.controller.move("move_left", duration)
-        elif action == "move_right":
-            self.controller.move("move_right", duration)
-        elif action == "move_backward":
-            self.controller.move("move_backward", duration)
-        elif action == "jump":
-            self.controller.jump()
-        # Add more actions as needed from your controller
+    def perform_action(self, actions, duration):
+        """Performs multiple actions using the controller."""
+        if isinstance(actions, ActionMapping):  # Allow single action as well
+            actions = [actions]
+
+        # Press and hold all actions for the duration
+        for action in actions:
+            key_binding = KeyBinding[action.name]  # Get the corresponding key binding
+            # Perform the action by using the key binding
+            if key_binding in [KeyBinding.MOVE_FORWARD, KeyBinding.MOVE_LEFT, KeyBinding.MOVE_RIGHT, KeyBinding.MOVE_BACKWARD]:
+                self.controller.move(key_binding)
+            elif key_binding == KeyBinding.JUMP:
+                self.controller.jump()
+            elif key_binding == KeyBinding.SPRINT:
+                self.controller.sprint()
+            elif key_binding == KeyBinding.NORMAL_ATTACK:
+                self.controller.normal_attack()
+            elif key_binding == KeyBinding.ELEMENTAL_SKILL:
+                self.controller.elemental_skill()
+            elif key_binding == KeyBinding.ELEMENTAL_BURST:
+                self.controller.elemental_burst()
+            elif key_binding == KeyBinding.INTERACT:
+                self.controller.interact()
+            elif key_binding == KeyBinding.OPEN_MAP:
+                self.controller.open_map()
+            elif key_binding == KeyBinding.OPEN_INVENTORY:
+                self.controller.open_inventory()
+            elif key_binding.name.startswith("SWITCH_CHARACTER"):
+                self.controller.switch_character(key_binding.name[-1])
+            
+        # Wait for the specified duration
+        time.sleep(duration)
+
+        # Release all keys after the duration
+        for action in actions:
+            key_binding = KeyBinding[action.name]
+            if key_binding in [KeyBinding.MOVE_FORWARD, KeyBinding.MOVE_LEFT, KeyBinding.MOVE_RIGHT, KeyBinding.MOVE_BACKWARD]:
+                pyautogui.keyUp(key_binding.value)  # Release the key after the duration
+            elif action == ActionMapping.SPRINT:
+                pyautogui.keyUp(KeyBinding.SPRINT.value)  # Release sprint key
 
     def generate(self, action, text_prompt, duration):
         """Performs the action and records it with text prompt in a separate thread."""

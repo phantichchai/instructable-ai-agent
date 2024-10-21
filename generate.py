@@ -1,13 +1,18 @@
 from data.generate_dataset import GenerateDataset
+from tools.action_key_mapping import ActionMapping
 from tools.genshin_impact_controller import GenshinImpactController
 
 if __name__ == '__main__':
     controller = GenshinImpactController()
-    dataset_generator = GenerateDataset(controller)
+    dataset_generator = GenerateDataset(controller=controller, fps=8)
 
     # Example of generating data for moving forward
-    dataset_generator.generate("move_forward", "Move forward for 5 seconds", duration=5)
-    dataset_generator.generate("move_left", "Move left for 5 seconds", duration=5)
+    dataset_generator.generate(ActionMapping.MOVE_FORWARD, "Move forward for 5 seconds", duration=5)
+    # dataset_generator.generate(ActionMapping.MOVE_LEFT, "Move left for 5 seconds", duration=5)
+    # dataset_generator.generate(ActionMapping.MOVE_BACKWARD, "Move backward for 5 seconds", duration=5)
+    # dataset_generator.generate(ActionMapping.MOVE_RIGHT, "Move right for 5 seconds", duration=5)
+    # dataset_generator.generate([ActionMapping.MOVE_FORWARD, ActionMapping.SPRINT], "Sprint forward for 5 seconds", duration=5)
+    # dataset_generator.generate(ActionMapping[f'SWITCH_CHARACTER_{index+1}'], f"Switch character from {switch} to {index+2}", duration=5)
 
     # Save metadata for the dataset
     dataset_generator.save_metadata()
