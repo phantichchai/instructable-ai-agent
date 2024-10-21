@@ -1,3 +1,4 @@
+import json
 import os
 from queue import Queue
 import queue
@@ -52,7 +53,7 @@ class GenerateDataset:
             video_writer.release()
         print(f"Video recorded and saved as: {video_filename}")
 
-    def capture_video(self, action, text_prompt, duration=10):
+    def capture_video(self, actions, text_prompt, duration=10):
         """Captures video while performing an action, saves video and adds to dataset."""
         video_filename = f"{self.dataset_dir}/video_{len(self.actions)}.mp4"
         self.is_recording = True
@@ -81,15 +82,12 @@ class GenerateDataset:
 
         self.is_recording = False
         writer_thread.join()  # Wait for the writer thread to finish
-        self.actions.append(action)
+        self.actions.append([action.value for action in actions])
         self.text_prompts.append(text_prompt)
-        print(f"Captured video for action: {action}, saved to {video_filename}")
+        print(f"Captured video for action: {actions}, saved to {video_filename}")
 
     def perform_action(self, actions, duration):
         """Performs multiple actions using the controller."""
-        if isinstance(actions, ActionMapping):  # Allow single action as well
-            actions = [actions]
-
         # Press and hold all actions for the duration
         for action in actions:
             key_binding = KeyBinding[action.name]  # Get the corresponding key binding
@@ -126,22 +124,34 @@ class GenerateDataset:
             elif action == ActionMapping.SPRINT:
                 pyautogui.keyUp(KeyBinding.SPRINT.value)  # Release sprint key
 
-    def generate(self, action, text_prompt, duration):
+    def generate(self, actions, text_prompt, duration):
         """Performs the action and records it with text prompt in a separate thread."""
-        video_thread = threading.Thread(target=self.capture_video, args=(action, text_prompt, duration))
+        if isinstance(actions, ActionMapping):  # Allow single action as well
+            actions = [actions]
+        video_thread = threading.Thread(target=self.capture_video, args=(actions, text_prompt, duration))
         video_thread.start()  # Start the video capture in a separate thread
 
-        self.perform_action(action, duration)  # Perform the action
+        self.perform_action(actions, duration)  # Perform the action
 
         video_thread.join()  # Wait for the video thread to finish
 
     def save_metadata(self):
-        """Saves metadata about the dataset (actions and prompts)."""
-        metadata_file = os.path.join(self.dataset_dir, "metadata.csv")
-        with open(metadata_file, 'w') as f:
-            f.write("Video File,Action,Text Prompt\n")
-            for i, action in enumerate(self.actions):
-                video_filename = f"video_{i}.mp4"
-                text_prompt = self.text_prompts[i]
-                f.write(f"{video_filename},{action},{text_prompt}\n")
+        """Saves metadata about the dataset (actions and prompts) as a JSON file with actions as lists."""
+        metadata_file = os.path.join(self.dataset_dir, "metadata.json")
+        metadata = []
+
+        # Build the metadata as a list of dictionaries
+        for i, action in enumerate(self.actions):
+            video_filename = f"video_{i}.mp4"
+            text_prompt = self.text_prompts[i]
+            metadata.append({
+                "video_file": video_filename,
+                "text_prompt": text_prompt,
+                "actions": action  # Save the action as a list
+            })
+
+        # Write the metadata to a JSON file
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+
         print(f"Saved metadata to {metadata_file}")

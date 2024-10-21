@@ -1,105 +1,109 @@
+import os
 import torch
-import time
-from data.dataset import GameplayActionPairVideoDataset
-from torch import optim
+import torch.optim as optim
+import torch.nn as nn
 from torch.utils.data import DataLoader
-from model.agent import Agent, AgentConfig, device
-from model.action_loss import ActionLoss
-from model.cvivit import CvivitConfig
-from model.encoder import MultiModelEncoderConfig
-from model.decoder import MultiModelDecoderConfig
-from tools.utils import custom_collate_fn
 from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
+from data.dataset import CommonGameplayPromptActionDataset
+from model.base.multi_model_policy_network import MultiModalModel
 
+class Trainer:
+    def __init__(self, model, dataloader, optimizer, criterion, num_epochs, save_dir, device):
+        self.model = model
+        self.dataloader = dataloader
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.num_epochs = num_epochs
+        self.save_dir = save_dir
+        self.device = device
+        self.writer = SummaryWriter(log_dir=f"runs/{self.model.__class__.__name__}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
+        self.saved_weights = []
 
-# Set up TensorBoard writer
-writer = SummaryWriter(log_dir='runs/behavior_cloning')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
-# Initialize your model, loss, optimizer
-config = AgentConfig(
-    encoder_config=MultiModelEncoderConfig(
-        vit_model_name='google/vit-base-patch16-224-in21k',
-        language_model_name='bert-base-uncased',
-        cvivit_config=CvivitConfig(
-            image_size=224,
-            color_channel=3,
-            emb_size=768,
-            d_model=768,
-            patch_size=(2, 8, 8),
-            num_layers_spatial=2,
-            num_heads_spatial=4,
-            dim_feedforward_spatial=512,
-            dropout_spatial=0.1,
-            num_layers_temporal=2,
-            num_heads_temporal=4,
-            dim_feedforward_temporal=512,
-            dropout_temporal=0.1
-        )
-    ),
-    decoder_config=MultiModelDecoderConfig(
-        d_model=768,
-        dim_feedforward=512,
-        nhead=4,
-        num_layers=2
-    )
-)
-agent = Agent(config=config, debug=False).to(device)
-criterion = ActionLoss()
-optimizer = optim.Adam(agent.parameters(), lr=0.001)
+    def save_model(self, epoch):
+        """Saves the model and maintains only 5 most recent weights."""
+        model_name = f"{self.model.__class__.__name__}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_epoch_{epoch}.pt"
+        model_path = os.path.join(self.save_dir, model_name)
+        torch.save(self.model.state_dict(), model_path)
+        self.saved_weights.append(model_path)
 
-# Load data
-root_dir = "output_logs"
-dataset = GameplayActionPairVideoDataset(root_dir=root_dir, image_size=(224, 224))
-dataloader = DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
+        # Remove old weights if more than 5 saved
+        if len(self.saved_weights) > 5:
+            oldest_model = self.saved_weights.pop(0)
+            if os.path.exists(oldest_model):
+                os.remove(oldest_model)
 
-epochs = 20000
+    def train(self):
+        self.model.to(self.device)
+        for epoch in range(self.num_epochs):
+            running_loss = 0.0
+            for batch_idx, data in enumerate(self.dataloader):
+                # Move data to device
+                frames = data['frames'].to(self.device)
+                text_prompt = data['text_prompt']
+                action = data['action'].to(self.device)
 
-def train():
-    for epoch in range(epochs):
-        running_loss = 0.0
-        for batch, (instruction, frames, action) in enumerate(dataloader):
-            frames = frames.to(device)
-            action = action.to(device)
-            _, _, channel, height, width = frames.shape
-            images = frames.reshape(-1, channel, height, width).to(device)
-            logits = agent(images, frames, instruction)
-            loss = criterion(logits, action)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
+                # Only take the first frame of the video for this example
+                image_input = frames[:, 0, :, :, :] # Assuming we're using the first frame as the image input
 
-            # Accumulate the loss
-            running_loss += loss.item()
+                # Zero the parameter gradients
+                self.optimizer.zero_grad()
 
-            # Log gradients and weights
-            # for name, param in agent.named_parameters():
-            #     if param.grad is not None:
-            #         writer.add_histogram(f'{name}.grad', param.grad, epoch)
-            #     writer.add_histogram(name, param, epoch)
-        
-        # Log average loss per epoch
-        avg_loss = running_loss / len(dataloader)
-        print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}")
-        writer.add_scalar('training_loss_per_epoch', avg_loss, epoch)
+                # Forward pass
+                outputs = self.model(image_input, text_prompt)
+                loss = self.criterion(outputs, action)
 
-        # Log learning rate
-        for param_group in optimizer.param_groups:
-            writer.add_scalar('learning_rate', param_group['lr'], epoch)
-        
-        # Log the time taken per epoch
-        writer.add_scalar('time_per_epoch', time.time(), epoch)
-            
-        # Save the model weights every 2000 epochs
-        if (epoch + 1) % 2000 == 0:
-            save()
+                # Backward pass and optimize
+                loss.backward()
+                self.optimizer.step()
 
-def save():
-    torch.save(agent.state_dict(), 'model_weights.pth')
-    print("Model weights saved.")
+                # Track loss
+                running_loss += loss.item()
 
-def close_writer():
-    writer.close()
+                if batch_idx % 10 == 9:  # Log every 10 mini-batches
+                    avg_loss = running_loss / 10
+                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Batch [{batch_idx+1}], Loss: {avg_loss:.4f}')
+                    self.writer.add_scalar('training_loss', avg_loss, epoch * len(self.dataloader) + batch_idx)
+                    running_loss = 0.0
+
+            # Save model after each epoch
+            self.save_model(epoch)
+
+        print("Finished Training")
+        self.writer.close()
 
 if __name__ == "__main__":
-    train()
-    close_writer()
+    # Set up parameters
+    root_dir = './dataset'  # Path to your dataset
+    image_size = (224, 224)  # Image size for the input
+    batch_size = 1
+    num_epochs = 10
+    learning_rate = 1e-3
+    save_dir = './saved_models'  # Directory to save models
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Load Dataset
+    dataset = CommonGameplayPromptActionDataset(root_dir=root_dir, image_size=image_size)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Initialize Model, Optimizer, and Loss Function
+    model = MultiModalModel(num_actions=dataset.action_size, device=device, debug=False).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.BCEWithLogitsLoss()  # Assuming multi-label classification
+
+    # Training Loop
+    trainer = Trainer(
+        model=model,
+        dataloader=dataloader,
+        optimizer=optimizer,
+        criterion=criterion,
+        num_epochs=num_epochs,
+        save_dir=save_dir,
+        device=device
+    )
+
+    # Run the training process
+    trainer.train()
