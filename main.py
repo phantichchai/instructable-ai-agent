@@ -1,3 +1,4 @@
+import pyautogui
 import torch
 import cv2
 import time
@@ -7,9 +8,10 @@ import torchvision.transforms as transforms
 import keyboard
 import random
 from model.base.multi_model_policy_network import MultiModalModel
+from model.base.bert_policy_network import BertPolicyNetwork
 from tools.genshin_impact_controller import GenshinImpactController
 from tools.window import get_window_coordinates
-from tools.action_key_mapping import KeyBinding
+from tools.action_key_mapping import ActionMapping, KeyBinding
 
 
 def capture_screen():
@@ -44,19 +46,20 @@ def close_windows():
 
 def generate_text_prompt():
     # Ask the user for a text prompt from the terminal
-    return random.choice(KeyBinding)
-
+    return input("Enter prompt test: ")
 
 def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Device: {device}")
 
-    model = MultiModalModel(num_actions=17, device=device, debug=False).to(device)
-    controller = GenshinImpactController(model, debug=True)
+    model = BertPolicyNetwork(num_actions=22, device=device).to(device)
+    path = "saved_models/BertPolictNetwork_20241023_025715_epoch_250.pt"
+    model.load_state_dict(torch.load(path, weights_only=True))
+    controller = GenshinImpactController(debug=True)
 
     started = False  # Variable to track whether the agent has started
     paused = False  # Variable to track pause/resume state
-
+    print("Ready to start!")
     try:
         while True:
             if not started and keyboard.is_pressed('s'):  # Start when 's' is pressed
@@ -83,18 +86,23 @@ def main():
                     print(f"Prompt text: {text_prompt}")
 
                     # Get the action logits from the model
-                    action_logits = model(screen_image, [text_prompt])
-                    print(f"Logit: {action_logits}")
-
-                    # Select the action with the highest value
-                    action_index = torch.argmax(action_logits, dim=1).item()
-                    print(f"Index: {action_index}")
-
+                    with torch.inference_mode():
+                        logits = model([text_prompt])
+                    probs = torch.sigmoid(logits)
+                    print(f"Probs: {probs}")
+                    actions = (probs > 0.1).int()
+                    actions = actions[0].cpu().numpy().tolist()
+                    print(f"Actions: {actions}")
                     # Execute the corresponding action using the controller
-                    controller.execute_action(action_index)
+                    for i, action in enumerate(actions):
+                        if action == 1:
+                            controller.execute_action(i)
 
                     # Optional: Introduce a small delay to avoid too many rapid inputs
-                    time.sleep(0.1)
+                    time.sleep(1)
+
+                    for i in range(4):
+                        pyautogui.keyUp(KeyBinding[ActionMapping(i).name].value)
 
     except KeyboardInterrupt:
         print("Program terminated by user.")
