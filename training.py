@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from data.dataset import CommonGameplayPromptActionDataset
 from model.base.multi_model_policy_network import MultiModalModel
+from model.base.bert_policy_network import BertPolicyNetwork
 
 class Trainer:
     def __init__(self, model, dataloader, optimizer, criterion, num_epochs, save_dir, device):
@@ -53,7 +54,7 @@ class Trainer:
                 self.optimizer.zero_grad()
 
                 # Forward pass
-                outputs = self.model(image_input, text_prompt)
+                outputs = self.model(text_prompt)
                 loss = self.criterion(outputs, action)
 
                 # Backward pass and optimize
@@ -70,7 +71,8 @@ class Trainer:
                     running_loss = 0.0
 
             # Save model after each epoch
-            self.save_model(epoch)
+            if epoch % 250 == 0:
+                self.save_model(epoch)
 
         print("Finished Training")
         self.writer.close()
@@ -79,8 +81,8 @@ if __name__ == "__main__":
     # Set up parameters
     root_dir = './dataset'  # Path to your dataset
     image_size = (224, 224)  # Image size for the input
-    batch_size = 1
-    num_epochs = 10
+    batch_size = 8
+    num_epochs = 2000
     learning_rate = 1e-3
     save_dir = './saved_models'  # Directory to save models
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -90,7 +92,7 @@ if __name__ == "__main__":
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # Initialize Model, Optimizer, and Loss Function
-    model = MultiModalModel(num_actions=dataset.action_size, device=device, debug=False).to(device)
+    model = BertPolicyNetwork(num_actions=dataset.action_size, device=device).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.BCEWithLogitsLoss()  # Assuming multi-label classification
 

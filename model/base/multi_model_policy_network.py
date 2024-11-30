@@ -19,7 +19,12 @@ class MultiModalModel(nn.Module):
         self.text_fc = nn.Linear(self.text_encoder.config.hidden_size, text_output_size)
 
         # Fusion Layer
-        self.fc = nn.Linear(image_output_size + text_output_size, 512)
+        self.fc = nn.Sequential(
+            nn.Linear(image_output_size + text_output_size, 512),
+            nn.LayerNorm(512),
+            nn.ReLU(),
+            nn.Dropout(0.3)  # Dropout with 30% probability
+        )
         self.output_layer = nn.Linear(512, num_actions)
 
     def forward(self, image, text):
