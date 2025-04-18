@@ -1,6 +1,6 @@
 outs:
-- md5: 6e814a549c3114e7732dd3c70b5af683.dir
-  size: 4249592427
-  nfiles: 8
+- md5: 2974e6c35440c745ea2dc9e0d202ade1.dir
+  size: 5501843722
+  nfiles: 12
   hash: md5
   path: saved_models
