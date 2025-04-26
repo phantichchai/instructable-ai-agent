@@ -2,7 +2,9 @@ import shutil
 import os
 import torch
 import numpy as np
+import cv2
 from datetime import datetime
+from typing import Optional, Tuple
 
 
 def count_folders(directory):
@@ -134,3 +136,46 @@ def custom_collate_fn(batch):
 
     # Return the padded tensors
     return instructions, torch.tensor(padded_video_tensors), torch.tensor(padded_action_tensors)
+
+
+def read_video_tensor(
+    path: str,
+    resize_to: Optional[Tuple[int, int]] = None,
+    max_frames: Optional[int] = None
+) -> torch.Tensor:
+    """
+    Reads a video file and returns a tensor of shape [T, C, H, W]
+
+    Args:
+        path (str): Path to the video file
+        resize_to (tuple[int, int], optional): (width, height) to resize each frame
+        max_frames (int, optional): Maximum number of frames to read
+
+    Returns:
+        torch.Tensor: Video tensor of shape [T, C, H, W], values in [0, 1]
+    """
+    cap = cv2.VideoCapture(path)
+    frames = []
+    count = 0
+
+    if not cap.isOpened():
+        raise FileNotFoundError(f"Failed to open video: {path}")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret or (max_frames is not None and count >= max_frames):
+            break
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        if resize_to is not None:
+            frame = cv2.resize(frame, resize_to)
+
+        frames.append(torch.from_numpy(frame).permute(2, 0, 1).float() / 255.0)  # C x H x W
+        count += 1
+
+    cap.release()
+
+    if not frames:
+        raise ValueError("No frames were read from the video.")
+
+    return torch.stack(frames)  # T x C x H x W
