@@ -3,10 +3,10 @@ from torch import nn
 from torch.nn.functional import cosine_similarity
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
-from data.dataset import CommonGameplayPromptActionDataset
+from data.dataset import GenshinPolicyDataset
 from model.genshin.policy import PolicyFromMineCLIP
 from model.mineclip.mineclip import MineCLIP
-
+from tools.utils import read_video_tensor
 
 def train_behavior_cloning_with_mineclip(
     model: nn.Module,
@@ -18,13 +18,15 @@ def train_behavior_cloning_with_mineclip(
     model.train()
     mineclip.eval()  # keep MineCLIP frozen
 
-    for video, text_prompt in dataloader:
+    for data in dataloader:
+        video = data['video_tensor']
+        text_prompt = data['text_prompt']
         video = video.to(device)
         text_token = mineclip.encode_text(text_prompt).to(device)  # e.g., CLIP tokenizer
 
         # Get target text embedding from MineCLIP
         with torch.no_grad():
-            _, text_embed = mineclip(None, text_token)
+            text_embed = mineclip.encode_text(text_token)
             text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
 
         # Predict policy output (action embedding)
@@ -54,7 +56,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load Dataset
-    dataset = CommonGameplayPromptActionDataset(root_dir=root_dir, image_size=image_size)
+    dataset = GenshinPolicyDataset(root_dir=root_dir, image_size=image_size)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     cfg = {'arch': 'vit_base_p16_fz.v2.t2', 'hidden_dim': 512, 'image_feature_dim': 512, 'mlp_adapter_spec': 'v0-2.t0', 'pool_type': 'attn.d2.nh8.glusw', 'resolution': [160, 256]}
 
