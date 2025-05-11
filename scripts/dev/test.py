@@ -26,6 +26,9 @@ def main():
     image_feats = model.forward_image_features(video)
     video_feats = model.forward_video_features(image_feats)
 
+    print(f"image_feats: {image_feats.shape}")
+    print(f"video_feats: {video_feats.shape}")
+
     text_feats_batch = model.encode_text(prompts)
     logits_per_video, logits_per_text = model.forward_reward_head(
         video_features=video_feats,
