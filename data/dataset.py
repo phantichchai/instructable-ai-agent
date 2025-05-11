@@ -72,7 +72,7 @@ class GameplayActionPairVideoDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, idx) -> dict[str, str | torch.Tensor]:
+    def __getitem__(self, idx):
         video_info = self.data[idx]
         video_path = video_info['video_path']
 

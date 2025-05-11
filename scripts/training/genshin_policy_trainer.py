@@ -1,52 +1,79 @@
 import torch
+import os
 from torch import nn
 from torch.nn.functional import cosine_similarity
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from data.dataset import CommonGameplayPromptActionDataset
+from datetime import datetime
 from model.genshin.policy import PolicyFromMineCLIP
 from model.mineclip.mineclip import MineCLIP
 
+saved_weights = []
+
+def save_model(save_dir, model: nn.Module, epoch):
+    """Saves the model and maintains only 5 most recent weights."""
+    model_name = f"{model.__class__.__name__}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_epoch_{epoch}.pt"
+    model_path = os.path.join(save_dir, model_name)
+    torch.save(model.state_dict(), model_path)
+    saved_weights.append(model_path)
+
+    # Remove old weights if more than 5 saved
+    if len(saved_weights) > 5:
+        oldest_model = saved_weights.pop(0)
+        if os.path.exists(oldest_model):
+            os.remove(oldest_model)
 
 def train_behavior_cloning_with_mineclip(
     model: nn.Module,
     mineclip: MineCLIP,
     dataloader,
     optimizer: Optimizer,
+    criterion,
+    save_dir: str,
+    num_epochs: int,
     device="cuda"
 ):
     model.train()
     mineclip.eval()  # keep MineCLIP frozen
+    writer = SummaryWriter(log_dir=f"runs/{model.__class__.__name__}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
 
-    for video, text_prompt in dataloader:
-        video = video.to(device)
-        text_token = mineclip.encode_text(text_prompt).to(device)  # e.g., CLIP tokenizer
 
-        # Get target text embedding from MineCLIP
-        with torch.no_grad():
-            _, text_embed = mineclip(None, text_token)
-            text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
+    for epoch in range(num_epochs):
+        for batch_idx, data in enumerate(dataloader):
+            video = data['frames']
+            video = video.to(device)
+            text_prompt = data['text_prompt']
+            text_token = mineclip.encode_text(text_prompt).to(device)  # e.g., CLIP tokenizer
+            # Get target text embedding from MineCLIP
+            with torch.no_grad():
+                text_embed = mineclip.encode_text(text_token)
+                text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
 
-        # Predict policy output (action embedding)
-        pred_embed = model(video)
-        pred_embed = pred_embed / pred_embed.norm(dim=1, keepdim=True)
+            # Predict policy output (action embedding)
+            pred_embed = model(video)
+            pred_embed = pred_embed / pred_embed.norm(dim=1, keepdim=True)
 
-        # Cosine similarity loss (maximize alignment)
-        similarity = cosine_similarity(pred_embed, text_embed, dim=1)
-        loss = 1 - similarity.mean()
+            action = data["action"].to(device)
+            loss = criterion(pred_embed, action)
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        print(f"Loss: {loss.item():.4f}, Similarity: {similarity.mean().item():.4f}")
+            print(f'Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}], Loss: {loss.item():.4f}')
+            writer.add_scalar('training_loss', loss, epoch * len(dataloader) + batch_idx)
+        
+        if epoch % 250 == 0:
+            save_model(save_dir, model, epoch)
 
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Set up parameters
     root_dir = './dataset'  # Path to your dataset
-    image_size = (224, 224)  # Image size for the input
+    image_size = (160, 256)  # Image size for the input
     batch_size = 8
     num_epochs = 1
     learning_rate = 1e-3
@@ -64,14 +91,19 @@ if __name__ == "__main__":
 
     model = PolicyFromMineCLIP(
         mineclip=mineclip,
-        embed_dim=512
-    )
+        embed_dim=512,
+        num_actions=22
+    ).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.BCEWithLogitsLoss()
 
     train_behavior_cloning_with_mineclip(
         model,
         mineclip,
         dataloader,
-        optimizer
+        optimizer,
+        criterion,
+        save_dir=save_dir,
+        num_epochs=num_epochs
     )
