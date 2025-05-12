@@ -44,16 +44,14 @@ def train_behavior_cloning_with_mineclip(
         for batch_idx, data in enumerate(dataloader):
             video = data['frames']
             video = video.to(device)
+            video_embed = mineclip.encode_video(video).to(device)
             text_prompt = data['text_prompt']
-            text_token = mineclip.encode_text(text_prompt).to(device)  # e.g., CLIP tokenizer
-            # Get target text embedding from MineCLIP
-            with torch.no_grad():
-                text_embed = mineclip.encode_text(text_token)
-                text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
+            text_embed = mineclip.encode_text(text_prompt).to(device)
+            text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
 
+            obs_embed = torch.cat([video_embed, text_embed], dim=-1)
             # Predict policy output (action embedding)
-            pred_embed = model(video)
-            pred_embed = pred_embed / pred_embed.norm(dim=1, keepdim=True)
+            pred_embed = model(obs_embed)
 
             action = data["action"].to(device)
             loss = criterion(pred_embed, action)
@@ -75,7 +73,7 @@ if __name__ == "__main__":
     root_dir = './dataset'  # Path to your dataset
     image_size = (160, 256)  # Image size for the input
     batch_size = 8
-    num_epochs = 2500
+    num_epochs = 1000
     learning_rate = 1e-3
     save_dir = './saved_models'  # Directory to save models
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -89,17 +87,18 @@ if __name__ == "__main__":
     mineclip.load_state_dict(torch.load("saved_models/mineclip/attn_new.pth"))
 
 
-    model = PolicyFromMineCLIP(
+    policy = PolicyFromMineCLIP(
         mineclip=mineclip,
+        input_dim=1024,
         embed_dim=512,
         num_actions=22
     ).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(policy.parameters(), lr=learning_rate)
     criterion = nn.BCEWithLogitsLoss()
 
     train_behavior_cloning_with_mineclip(
-        model,
+        policy,
         mineclip,
         dataloader,
         optimizer,

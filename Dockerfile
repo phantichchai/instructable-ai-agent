@@ -15,7 +15,8 @@ COPY /api /app/api
 COPY /model /app/model
 COPY /data/dataset.py /app/data
 COPY /tools/utils.py /app/tools
-COPY model_weights.pth /app/
+COPY model_weights.pt /app/
+COPY saved_models/mineclip/attn_new.pth /app/
 
 # Expose the port on which the app will run
 EXPOSE 8000
