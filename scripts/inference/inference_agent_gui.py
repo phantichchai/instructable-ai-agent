@@ -4,7 +4,7 @@ from inference import capture_from_window
 def running():
     window_title = clicked.get()
     instruction = entry_instruction_text.get()
-    capture_from_window.start_capturing(instruction, window_title, 9, 30)
+    capture_from_window.start_capturing(instruction, window_title, 16, 30)
 
 # Create the main window
 root = tk.Tk()
