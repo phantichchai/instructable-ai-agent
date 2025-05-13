@@ -11,6 +11,8 @@ from datetime import datetime
 import websockets
 import asyncio
 from queue import Queue
+import pyautogui
+
 
 frame_buffer = deque(maxlen=16)
 
@@ -18,6 +20,10 @@ def start_capturing(instruction: str, window_title: str, max_frames: int, fps: i
     def runner():
         asyncio.run(capture_from_window_ws(instruction, window_title, max_frames, fps))
     # Run the capturing in a separate thread to avoid blocking the main Tkinter thread
+    pyautogui.keyDown('alt')
+    pyautogui.press('tab')
+    time.sleep(0.1)
+    pyautogui.keyUp('alt')
     capturing = threading.Thread(target=runner)
     capturing.start()
 

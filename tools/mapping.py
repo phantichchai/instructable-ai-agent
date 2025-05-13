@@ -26,8 +26,8 @@ MOUSE_BUTTON = {
 INDEX_TO_ACTION = {
     0: 'w',
     1: 'a',
-    2: 's',
-    3: 'd',
+    2: 'd',
+    3: 's',
     4: 'space',
     5: 'shift',
     6: 'q',
