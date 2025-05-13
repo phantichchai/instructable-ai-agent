@@ -165,6 +165,7 @@ output_frames/
 output_logs/
 .vscode/
 *.pth
+*.pt
 runs/
 /dataset
 /saved_models

@@ -2,3 +2,7 @@ uvicorn
 fastapi
 transformers
 python-multipart
+x_transformers
+dm-tree
+kornia
+websockets

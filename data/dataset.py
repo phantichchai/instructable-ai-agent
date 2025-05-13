@@ -6,6 +6,7 @@ import json
 import numpy as np
 from tools.action_key_mapping import ActionMapping
 from tools.mapping import ACTION_MAP, EVENT_TYPE, MOUSE_BUTTON
+from tools.utils import read_video_tensor
 
 class GameplayActionPairVideoDataset(Dataset):
     def __init__(self, root_dir, transform=None, image_size=None):
@@ -72,7 +73,7 @@ class GameplayActionPairVideoDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, idx) -> dict[str, str | torch.Tensor]:
+    def __getitem__(self, idx):
         video_info = self.data[idx]
         video_path = video_info['video_path']
 
@@ -173,6 +174,54 @@ class CommonGameplayPromptActionDataset(Dataset):
             "frames": frames,
             "text_prompt": text_prompt,
             "action": one_hot_actions
+        }
+
+        return sample
+
+
+class GenshinPolicyDataset(Dataset):
+    def __init__(self, root_dir, image_size, transform=None) -> None:
+        super().__init__()
+        self.root_dir = root_dir
+        self.image_size = image_size
+        self.transform = transform
+        self.metadata_file = os.path.join(self.root_dir, "metadata.json")
+        self.action_size = len(ActionMapping)
+        self.data = []
+
+        # Load metadata from CSV
+        self.load_metadata()
+    
+    def load_metadata(self):
+        """Load metadata from a JSON file into a list of dictionaries."""
+        if os.path.exists(self.metadata_file):
+            # Open and read the JSON file
+            with open(self.metadata_file, mode='r', encoding='utf-8') as file:
+                self.data = json.load(file)  # Load JSON data into the data list
+
+            # Print loaded metadata for confirmation
+            print("Loaded metadata:")
+            for record in self.data:
+                print(record)
+        else:
+            print(f"Metadata file '{self.metadata_file}' not found!")
+
+        def __len__(self):
+            """Returns the total number of samples."""
+            return len(self.data)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        record = self.data[index]
+        video_path = os.path.join(self.root_dir, record['video_file'])
+        text_prompt = record['text_prompt']
+
+        video_tensor = read_video_tensor(video_path, resize_to=(256, 160), max_frames=32)
+        sample = {
+            "video_tensor": video_tensor,
+            "text_prompt": text_prompt,
         }
 
         return sample
