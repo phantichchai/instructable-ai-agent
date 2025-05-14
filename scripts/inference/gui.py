@@ -1,10 +1,10 @@
 import tkinter as tk
-from inference import capture_from_window
+from clients import video_stream
 
 def running():
     window_title = clicked.get()
     instruction = entry_instruction_text.get()
-    capture_from_window.start_capturing(instruction, window_title, 16, 30)
+    video_stream.start_capturing(instruction, window_title, 16, 30)
 
 # Create the main window
 root = tk.Tk()

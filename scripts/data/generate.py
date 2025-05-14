@@ -1,6 +1,6 @@
 from data.generate_dataset import GenerateDataset
-from tools.action_key_mapping import ActionMapping
-from tools.genshin_impact_controller import GenshinImpactController
+from tools.genshin.mapping import ActionMapping
+from tools.genshin.controller import GenshinImpactController
 
 if __name__ == '__main__':
     controller = GenshinImpactController()

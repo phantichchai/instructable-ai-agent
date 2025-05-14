@@ -8,8 +8,8 @@ import mss
 import numpy as np
 import threading
 import pyautogui
-from tools.action_key_mapping import ActionMapping, KeyBinding
-from tools.genshin_impact_controller import GenshinImpactController
+from tools.genshin.mapping import ActionMapping, KeyBinding
+from tools.genshin.controller import GenshinImpactController
 from tools.window import get_window_coordinates
 
 class GenerateDataset:

@@ -6,12 +6,11 @@ import mss
 import numpy as np
 import torchvision.transforms as transforms
 import keyboard
-import random
 from model.base.multi_model_policy_network import MultiModalModel
 from model.base.bert_policy_network import BertPolicyNetwork
-from tools.genshin_impact_controller import GenshinImpactController
+from tools.genshin.controller import GenshinImpactController
 from tools.window import get_window_coordinates
-from tools.action_key_mapping import ActionMapping, KeyBinding
+from tools.genshin.mapping import ActionMapping, KeyBinding
 
 
 def capture_screen():

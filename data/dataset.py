@@ -4,8 +4,8 @@ import os
 import cv2
 import json
 import numpy as np
-from tools.action_key_mapping import ActionMapping
-from tools.mapping import ACTION_MAP, EVENT_TYPE, MOUSE_BUTTON
+from tools.genshin.mapping import ActionMapping
+from tools.basic.mapping import ACTION_MAP, EVENT_TYPE, MOUSE_BUTTON
 from tools.utils import read_video_tensor
 
 class GameplayActionPairVideoDataset(Dataset):

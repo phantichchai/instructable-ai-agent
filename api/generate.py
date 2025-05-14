@@ -1,27 +1,18 @@
-import cv2
-import requests
-
-
-API_URL = "http://192.168.1.239:8000/generate"
-
-# Send frames and text to API
-def send_frames_and_text_to_api(frames, text):
-    # Convert each frame to raw bytes
-    frame_bytes = [cv2.imencode('.jpg', frame)[1].tobytes() for frame in frames]
+import torch
+from api.core import mineclip, agent, device
     
-    # Prepare the payload
-    files = {
-        'frame1': ('frame1.jpg', frame_bytes[0], 'image/jpeg'),
-        'frame2': ('frame2.jpg', frame_bytes[1], 'image/jpeg'),
-        'frame3': ('frame3.jpg', frame_bytes[2], 'image/jpeg')
-    }
-    data = {'text': text}
-    
-    # Send POST request to API
-    response = requests.post(API_URL, files=files, data=data)
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error: {response.status_code}")
-        return None
+async def process_frames(frames, instruction):
+    # List of 16 frames in BGR format
+    frame_tensors = [torch.from_numpy(f).permute(2, 0, 1).float() / 255.0 for f in frames]
+
+    # Stack into a batch of shape [16, C, H, W]
+    video_tensor = torch.stack(frame_tensors).unsqueeze(0).to(device) # Shape: [16, 3, H, W]
+
+    # Forward through your MineCLIP model
+    video_embed = mineclip.encode_video(video_tensor)
+    text_embed = mineclip.encode_text(instruction)
+    obs_embed = torch.cat([video_embed, text_embed], dim=-1)
+
+    # Predict action
+    actions = agent.get_actions(obs_embed)
+    return actions.cpu().numpy()

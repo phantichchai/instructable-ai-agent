@@ -3,8 +3,8 @@ import numpy as np
 import time
 import threading
 import mss
-from api import generate
-from tools.controller import tensor_to_action, control_from_action
+from tools.basic.controller import tensor_to_action
+from tools.genshin.controller import GenshinImpactController
 from tools.window import get_window_coordinates
 from collections import deque
 from datetime import datetime
@@ -12,6 +12,7 @@ import websockets
 import asyncio
 from queue import Queue
 import pyautogui
+from clients.generate import send_frames_and_text_to_api
 
 
 frame_buffer = deque(maxlen=16)
@@ -45,7 +46,7 @@ def capture_from_window(instruction: str, window_title: str, max_frames: int, fp
             frame_buffer.append(frame)
 
             if len(frame_buffer) == max_frames:
-                response = generate.send_frames_and_text_to_api(list(frame_buffer), instruction)
+                response = send_frames_and_text_to_api(list(frame_buffer), instruction)
                 tensor_to_action(response['actions'])
 
             elapsed_time = time.time() - start_time
@@ -61,6 +62,7 @@ def capture_from_window(instruction: str, window_title: str, max_frames: int, fp
 
 WS_URL = "ws://192.168.1.239:8000/ws/video"
 action_queue = Queue()
+controller = GenshinImpactController(debug=True)
 
 async def receive_actions(websocket):
     while True:
@@ -103,7 +105,7 @@ async def capture_from_window_ws(instruction: str, window_title: str, max_frames
                 while not action_queue.empty():
                     action = action_queue.get()
                     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Action received: {action}")
-                    control_from_action(action)
+                    controller.control_from_action(action)
 
                 # Maintain FPS
                 elapsed_time = time.time() - start_time

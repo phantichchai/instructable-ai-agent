@@ -1,11 +1,13 @@
 import pyautogui
 import time
-from tools.action_key_mapping import KeyBinding, ActionMapping
+from tools.genshin.mapping import KeyBinding, ActionMapping
 
 class GenshinImpactController:
     def __init__(self, debug=False):
         # Debug mode to print actions
         self.debug = debug
+        self.held_keys = set()
+        self.held_mouse_buttons = set()
 
     # Movement functions
     def move(self, direction: KeyBinding):
@@ -47,6 +49,9 @@ class GenshinImpactController:
     def open_inventory(self):
         pyautogui.press(KeyBinding.OPEN_INVENTORY.value)
 
+    def release_action(self, key):
+        pyautogui.keyUp(key)
+
     # Method to execute action based on RL model's output
     def execute_action(self, action_value: ActionMapping):
         action = ActionMapping(action_value)
@@ -78,6 +83,25 @@ class GenshinImpactController:
                 self.open_map()
             elif action == ActionMapping.OPEN_INVENTORY:
                 self.open_inventory()
+    
+    def control_from_action(self, action):
+        keyboard_actions = action[:22]
+
+        new_held_keys = set()
+        for i, pressed in enumerate(keyboard_actions):
+            if pressed:
+                action_enum = ActionMapping(i)
+                new_held_keys.add(action_enum)
+                if action_enum not in self.held_keys:
+                    self.execute_action(action_enum)
+
+        # Release keys no longer held
+        for action_enum in self.held_keys - new_held_keys:
+            if self.debug:
+                print(f"Release key action: {action_enum}")
+            self.release_action(KeyBinding[action_enum.name].value)
+
+        self.held_keys = new_held_keys
 
 # Example usage
 if __name__ == '__main__':

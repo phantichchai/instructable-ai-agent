@@ -1,6 +1,6 @@
 import numpy as np
 import pyautogui
-from tools.mapping import INDEX_TO_ACTION, INDEX_TO_EVENT_TYPE, INDEX_TO_MOUSE_BUTTON
+from tools.basic.mapping import INDEX_TO_ACTION, INDEX_TO_EVENT_TYPE, INDEX_TO_MOUSE_BUTTON
 
 ORIGINAL_WIDTH = 1920
 ORIGINAL_HEIGHT = 1080
