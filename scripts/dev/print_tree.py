@@ -15,4 +15,4 @@ def print_tree(root, prefix="", level=2):
                 print_tree(path, prefix + "│   ", level - 1)
 
 if __name__ == "__main__":
-    print_tree(".", level=2)
+    print_tree(".", level=3)
