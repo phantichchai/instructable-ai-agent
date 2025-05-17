@@ -1,19 +1,26 @@
+import os
+import pyautogui
+import time
 from data.generate_dataset import GenerateDataset
-from tools.genshin.mapping import ActionMapping
+from tools.genshin.mapping import ActionMapping, ActionPromptMapping
 from tools.genshin.controller import GenshinImpactController
 
-if __name__ == '__main__':
-    controller = GenshinImpactController()
-    dataset_generator = GenerateDataset(controller=controller, dataset_dir="dataset/movement", fps=8)
+controller = GenshinImpactController()
+dir = os.path.join("dataset", "movement")
+dataset_generator = GenerateDataset(controller=controller, dataset_dir=dir, fps=8, overwrite=False)
 
-    # Example of generating data for moving forward
-    for switch in [(1, 2), (2, 3), (3, 4), (4, 1)]:
-        dataset_generator.generate(ActionMapping.MOVE_FORWARD, "Move forward for 5 seconds", perform_duration=5)
-        dataset_generator.generate(ActionMapping.MOVE_LEFT, "Move left for 5 seconds", perform_duration=5)
-        dataset_generator.generate(ActionMapping.MOVE_BACKWARD, "Move backward for 5 seconds", perform_duration=5)
-        dataset_generator.generate(ActionMapping.MOVE_RIGHT, "Move right for 5 seconds", perform_duration=5)
-        dataset_generator.generate([ActionMapping.MOVE_FORWARD, ActionMapping.SPRINT], "Sprint forward for 5 seconds", perform_duration=5)
-        dataset_generator.generate(ActionMapping[f'SWITCH_CHARACTER_{switch[1]}'], f"Switch character from {switch[0]} to {switch[1]}", perform_duration=1)
+pyautogui.keyDown('alt')
+pyautogui.press('tab')
+time.sleep(0.1)
+pyautogui.keyUp('alt')
 
-    # Save metadata for the dataset
-    dataset_generator.save_metadata()
+# Example of generating data for moving forward
+for switch in [2, 3, 4, 1]:
+    dataset_generator.generate(ActionMapping.MOVE_FORWARD, f"[ACTION] {ActionPromptMapping[ActionMapping.MOVE_FORWARD]}", perform_duration=2)
+    dataset_generator.generate(ActionMapping.MOVE_BACKWARD, f"[ACTION] {ActionPromptMapping[ActionMapping.MOVE_BACKWARD]}", perform_duration=2)
+    dataset_generator.generate(ActionMapping.MOVE_LEFT, f"[ACTION] {ActionPromptMapping[ActionMapping.MOVE_LEFT]}", perform_duration=2)
+    dataset_generator.generate(ActionMapping.MOVE_RIGHT, f"[ACTION] {ActionPromptMapping[ActionMapping.MOVE_RIGHT]}", perform_duration=2)
+    dataset_generator.generate(ActionMapping[f'SWITCH_CHARACTER_{switch}'], f"[ACTION] {ActionPromptMapping[ActionMapping[f'SWITCH_CHARACTER_{switch}']]}", perform_duration=1, record_video=False)
+
+# Save metadata for the dataset
+dataset_generator.save_metadata()

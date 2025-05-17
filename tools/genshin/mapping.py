@@ -55,3 +55,28 @@ HOLDABLE_ACTIONS = {
     ActionMapping.MOVE_BACKWARD,
     ActionMapping.SPRINT
 }
+
+ActionPromptMapping = {
+    ActionMapping.MOVE_FORWARD: "move forward",
+    ActionMapping.MOVE_LEFT: "move left",
+    ActionMapping.MOVE_RIGHT: "move right",
+    ActionMapping.MOVE_BACKWARD: "move backward",
+    ActionMapping.JUMP: "jump",
+    ActionMapping.SPRINT: "sprint",
+    ActionMapping.NORMAL_ATTACK: "attack",
+    ActionMapping.ELEMENTAL_SKILL: "use skill",
+    ActionMapping.ELEMENTAL_BURST: "use burst",
+    ActionMapping.AIM_MODE: "aim",
+    ActionMapping.INTERACT: "interact",
+    ActionMapping.OPEN_MAP: "open map",
+    ActionMapping.OPEN_INVENTORY: "open inventory",
+    ActionMapping.SWITCH_CHARACTER_1: "switch to character 1",
+    ActionMapping.SWITCH_CHARACTER_2: "switch to character 2",
+    ActionMapping.SWITCH_CHARACTER_3: "switch to character 3",
+    ActionMapping.SWITCH_CHARACTER_4: "switch to character 4",
+    ActionMapping.SPECIAL_QUEST_ABILITIES: "use quest ability",
+    ActionMapping.OPEN_MAIN_MENU: "open menu",
+    ActionMapping.OPEN_CHARACTER_MENU: "open character menu",
+    ActionMapping.OPEN_QUESTS_MENU: "open quest menu",
+    ActionMapping.CHARGE_ATTACK: "charge attack",
+}
