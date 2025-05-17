@@ -1,10 +1,10 @@
 import pyautogui
 import time
-from tools.genshin.mapping import KeyBinding, ActionMapping
+from tools.genshin.mapping import KeyBinding, ActionMapping, HOLDABLE_ACTIONS
+
 
 class GenshinImpactController:
     def __init__(self, debug=False):
-        # Debug mode to print actions
         self.debug = debug
         self.held_keys = set()
         self.held_mouse_buttons = set()
@@ -49,10 +49,10 @@ class GenshinImpactController:
     def open_inventory(self):
         pyautogui.press(KeyBinding.OPEN_INVENTORY.value)
 
-    def release_action(self, key):
-        pyautogui.keyUp(key)
+    def release_action(self, action_value: ActionMapping):
+        pyautogui.keyUp(KeyBinding[action_value.name].value)
 
-    # Method to execute action based on RL model's output
+    # Main executor
     def execute_action(self, action_value: ActionMapping):
         action = ActionMapping(action_value)
 
@@ -61,7 +61,7 @@ class GenshinImpactController:
 
         if action:
             if action.name.startswith("SWITCH_CHARACTER"):
-                character_number = int(action.name[-1])  # Get the character number from the action name
+                character_number = int(action.name[-1])
                 self.switch_character(character_number)
             elif action in [ActionMapping.MOVE_FORWARD, ActionMapping.MOVE_LEFT, ActionMapping.MOVE_RIGHT, ActionMapping.MOVE_BACKWARD]:
                 self.move(KeyBinding[action.name])
@@ -83,33 +83,30 @@ class GenshinImpactController:
                 self.open_map()
             elif action == ActionMapping.OPEN_INVENTORY:
                 self.open_inventory()
-    
+
     def control_from_action(self, action):
         keyboard_actions = action
-
-        # Only the first 4 are continuous hold keys
-        hold_indices = range(4)
-
-        new_held_keys = set(ActionMapping)
+        new_held_keys = set()
 
         for i, pressed in enumerate(keyboard_actions):
             if pressed:
                 action_enum = ActionMapping(i)
-
-                if i in hold_indices:
+                if action_enum in HOLDABLE_ACTIONS:
                     new_held_keys.add(action_enum)
                     if action_enum not in self.held_keys:
-                        self.execute_action(action_enum)  # press & hold if not already held
+                        self.execute_action(action_enum)  # Hold new direction
                 else:
-                    self.execute_action(action_enum)  # press-once action
+                    self.execute_action(action_enum)  # Instant press (jump, skill, etc.)
 
-        # Release keys that are no longer held (only for holdable keys)
+        # Release only movement keys that are no longer pressed
         for action_enum in self.held_keys - new_held_keys:
-            if self.debug:
-                print(f"Release key action: {action_enum}")
             self.release_action(KeyBinding[action_enum.name].value)
 
         self.held_keys = new_held_keys
+
+    def emergency_stop(self):
+        for action_enum in self.held_keys:
+            self.release_action(KeyBinding[action_enum.name].value)
 
 
 # Example usage
@@ -118,8 +115,12 @@ if __name__ == '__main__':
 
     # Example: Execute an action based on an RL model output (e.g., action value 0)
     controller.execute_action(0)  # Moves forward
-    controller.execute_action(4)  # Jumps
-    time.sleep(1)
-    for i in range(6):
-        controller.execute_action(6)
-        time.sleep(0.5)
+    controller.execute_action(1)  # Moves left
+    controller.execute_action(4)  # Jump
+    time.sleep(5)
+    controller.release_action(action_value=ActionMapping.MOVE_FORWARD)
+    controller.release_action(action_value=ActionMapping.MOVE_LEFT)
+    
+    # for i in range(6):
+    #     controller.execute_action(6)
+    #     time.sleep(0.5)

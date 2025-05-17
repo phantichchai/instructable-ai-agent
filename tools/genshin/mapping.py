@@ -47,3 +47,11 @@ class KeyBinding(Enum):
     OPEN_CHARACTER_MENU = 'c'
     OPEN_QUESTS_MENU = 'j'
     CHARGE_ATTACK = 'left'
+
+HOLDABLE_ACTIONS = {
+    ActionMapping.MOVE_FORWARD,
+    ActionMapping.MOVE_LEFT,
+    ActionMapping.MOVE_RIGHT,
+    ActionMapping.MOVE_BACKWARD,
+    ActionMapping.SPRINT
+}

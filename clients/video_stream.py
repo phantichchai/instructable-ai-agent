@@ -3,17 +3,17 @@ import numpy as np
 import time
 import threading
 import mss
+import websockets
+import asyncio
+import pyautogui
 from tools.basic.controller import tensor_to_action
 from tools.genshin.controller import GenshinImpactController
+from tools.genshin.mapping import KeyBinding
 from tools.window import get_window_coordinates
 from collections import deque
 from datetime import datetime
-import websockets
-import asyncio
 from queue import Queue
-import pyautogui
 from clients.generate import send_frames_and_text_to_api
-
 
 frame_buffer = deque(maxlen=16)
 
@@ -71,6 +71,9 @@ async def receive_actions(websocket):
             action = list(np.frombuffer(action_bytes, dtype=np.uint8))
             action_queue.put(action)
         except Exception as e:
+            controller.emergency_stop()
+            while not action_queue.empty():
+                _ = action_queue.get()
             print(f"[Error] Receiving action failed: {e}")
             break
 
@@ -96,6 +99,13 @@ async def capture_from_window_ws(instruction: str, window_title: str, max_frames
                 frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
                 frame = cv2.resize(frame, (160, 256))
 
+                # Optional: display
+                cv2.imshow("Captured Frame", frame)
+                key = cv2.waitKey(1) & 0xFF
+                if key == 27:  # ESC key
+                    controller.emergency_stop()
+                    break
+
                 # Encode frame to JPEG bytes
                 success, frame_buf = cv2.imencode(".jpg", frame)
                 if success:
@@ -110,14 +120,5 @@ async def capture_from_window_ws(instruction: str, window_title: str, max_frames
                 # Maintain FPS
                 elapsed_time = time.time() - start_time
                 time.sleep(max(0, interval - elapsed_time))
-
-                # Optional: display
-                cv2.imshow("Captured Frame", frame)
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27:  # ESC key
-                    with action_queue.mutex:
-                        action_queue.queue.clear()
-                        action_queue.unfinished_tasks = 0
-                    break
 
     cv2.destroyAllWindows()
