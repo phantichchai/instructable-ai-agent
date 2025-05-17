@@ -100,13 +100,13 @@ class GenshinImpactController:
 
         # Release only movement keys that are no longer pressed
         for action_enum in self.held_keys - new_held_keys:
-            self.release_action(KeyBinding[action_enum.name].value)
+            self.release_action(action_enum)
 
         self.held_keys = new_held_keys
 
     def emergency_stop(self):
         for action_enum in self.held_keys:
-            self.release_action(KeyBinding[action_enum.name].value)
+            self.release_action(action_enum)
 
 
 # Example usage
