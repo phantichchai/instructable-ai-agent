@@ -20,7 +20,7 @@ time.sleep(0.1)
 pyautogui.keyUp('alt')
 
 for switch in [(1, 2), (2, 3), (3, 4), (4, 1)]:
-    attack_label = random.choices(attack_variantion)
+    attack_label = random.choice(attack_variantion)
 
     dataset_generator.generate([
         (ActionMapping.NORMAL_ATTACK, 0.5),
