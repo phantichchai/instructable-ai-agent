@@ -113,7 +113,11 @@ async def capture_from_window_ws(instruction: str, window_title: str, max_frames
 
                 # Optional: display
                 cv2.imshow("Captured Frame", frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                key = cv2.waitKey(1) & 0xFF
+                if key == 27:  # ESC key
+                    with action_queue.mutex:
+                        action_queue.queue.clear()
+                        action_queue.unfinished_tasks = 0
                     break
 
     cv2.destroyAllWindows()

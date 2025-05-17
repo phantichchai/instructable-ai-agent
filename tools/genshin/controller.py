@@ -85,23 +85,32 @@ class GenshinImpactController:
                 self.open_inventory()
     
     def control_from_action(self, action):
-        keyboard_actions = action[:22]
+        keyboard_actions = action
 
-        new_held_keys = set()
+        # Only the first 4 are continuous hold keys
+        hold_indices = range(4)
+
+        new_held_keys = set(ActionMapping)
+
         for i, pressed in enumerate(keyboard_actions):
             if pressed:
                 action_enum = ActionMapping(i)
-                new_held_keys.add(action_enum)
-                if action_enum not in self.held_keys:
-                    self.execute_action(action_enum)
 
-        # Release keys no longer held
+                if i in hold_indices:
+                    new_held_keys.add(action_enum)
+                    if action_enum not in self.held_keys:
+                        self.execute_action(action_enum)  # press & hold if not already held
+                else:
+                    self.execute_action(action_enum)  # press-once action
+
+        # Release keys that are no longer held (only for holdable keys)
         for action_enum in self.held_keys - new_held_keys:
             if self.debug:
                 print(f"Release key action: {action_enum}")
             self.release_action(KeyBinding[action_enum.name].value)
 
         self.held_keys = new_held_keys
+
 
 # Example usage
 if __name__ == '__main__':
