@@ -179,3 +179,31 @@ def read_video_tensor(
         raise ValueError("No frames were read from the video.")
 
     return torch.stack(frames)  # T x C x H x W
+
+
+from datetime import datetime
+
+def generate_experiment_name(
+    model_name: str,
+    experiment: str = "default",
+    dataset: str = "default",
+    prompt_style: str = "base",
+    seed: int = 42,
+    include_epoch: bool = False,
+    epoch: int = None,
+    add_timestamp: bool = True
+) -> str:
+    parts = [
+        model_name,
+        f"exp-{experiment}",
+        f"data-{dataset}",
+        f"prompt-{prompt_style}",
+        f"seed-{seed}"
+    ]
+    if include_epoch and epoch is not None:
+        parts.append(f"epoch-{epoch}")
+    if add_timestamp:
+        parts.append(datetime.now().strftime("%Y%m%d_%H%M%S"))
+    
+    return "_".join(parts)
+

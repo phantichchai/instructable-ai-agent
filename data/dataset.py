@@ -105,45 +105,64 @@ class GameplayActionPairVideoDataset(Dataset):
 
 
 class CommonGameplayPromptActionDataset(Dataset):
-    def __init__(self, root_dir, image_size, transform=None) -> None:
+    def __init__(self, root_dir, image_size=(224, 224), max_frames=16, transform=None):
         super().__init__()
         self.root_dir = root_dir
         self.image_size = image_size
         self.transform = transform
-        self.metadata_file = os.path.join(self.root_dir, "metadata.json")
+        self.max_frames = max_frames
         self.action_size = len(ActionMapping)
         self.data = []
+        self.load_all_metadata()
 
-        # Load metadata from CSV
-        self.load_metadata()
-    
-    def load_metadata(self):
-        """Load metadata from a JSON file into a list of dictionaries."""
-        if os.path.exists(self.metadata_file):
-            # Open and read the JSON file
-            with open(self.metadata_file, mode='r', encoding='utf-8') as file:
-                self.data = json.load(file)  # Load JSON data into the data list
+    def load_all_metadata(self):
+        for subfolder in os.listdir(self.root_dir):
+            subfolder_path = os.path.join(self.root_dir, subfolder)
+            if not os.path.isdir(subfolder_path):
+                continue
 
-            # Print loaded metadata for confirmation
-            print("Loaded metadata:")
-            for record in self.data:
-                print(record)
-        else:
-            print(f"Metadata file '{self.metadata_file}' not found!")
+            metadata_path = os.path.join(subfolder_path, 'metadata.json')
+            if not os.path.exists(metadata_path):
+                continue
 
-        def __len__(self):
-            """Returns the total number of samples."""
-            return len(self.data)
-    
-    def actions_to_one_hot(self, actions):
-        """Convert action indices to a one-hot encoded tensor."""
-        one_hot = torch.zeros(self.action_size, dtype=torch.float32)
-        for action in actions:
-            one_hot[action] = 1.0  # Set the corresponding index to 1
-        return one_hot
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                records = json.load(f)
+                for record in records:
+                    record['video_file'] = os.path.join(subfolder, record['video_file'])
+                    self.data.append(record)
 
     def __len__(self):
         return len(self.data)
+
+    def actions_to_one_hot(self, actions):
+        one_hot = torch.zeros(self.action_size, dtype=torch.float32)
+        for action in actions:
+            one_hot[action] = 1.0
+        return one_hot
+
+    def sample_frames(self, video_path):
+        cap = cv2.VideoCapture(video_path)
+        frames = []
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame = cv2.resize(frame, self.image_size)
+            frame = frame / 255.0
+            frames.append(frame)
+        cap.release()
+
+        frames = np.array(frames)
+
+        if len(frames) < self.max_frames:
+            pad_len = self.max_frames - len(frames)
+            pad = np.zeros((pad_len, *frames.shape[1:]), dtype=np.float32)
+            frames = np.concatenate([frames, pad], axis=0)
+        else:
+            frames = frames[:self.max_frames]
+
+        frames = torch.tensor(frames, dtype=torch.float32).permute(0, 3, 1, 2)
+        return frames
 
     def __getitem__(self, index):
         record = self.data[index]
@@ -151,32 +170,14 @@ class CommonGameplayPromptActionDataset(Dataset):
         text_prompt = record['text_prompt']
         actions = record['actions']
 
-        # Read video using OpenCV
-        cap = cv2.VideoCapture(video_path)
-        frames = []
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            resized_frame = cv2.resize(frame, self.image_size)
-            normalize_frame = resized_frame / 255.0
-            frames.append(normalize_frame)
-        cap.release()
+        frames = self.sample_frames(video_path)
+        one_hot_actions = self.actions_to_one_hot(actions)
 
-        # Convert list of frame into NumPy array
-        frames = np.array(frames)
-        # Convert to tensor and permute dimensions to T, C, H, W
-        frames = torch.tensor(frames, dtype=torch.float32).permute(0, 3, 1, 2)
-        
-        one_hot_actions = self.actions_to_one_hot(actions=actions)
-
-        sample = {
+        return {
             "frames": frames,
             "text_prompt": text_prompt,
             "action": one_hot_actions
         }
-
-        return sample
 
 
 class GenshinPolicyDataset(Dataset):

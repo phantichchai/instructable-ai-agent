@@ -1,16 +1,17 @@
 import torch
 from torch import nn
-from model.mineclip.mineclip import MineCLIP
 
 class PolicyFromMineCLIP(nn.Module):
-    def __init__(self, mineclip: MineCLIP, input_dim, embed_dim, num_actions):
+    def __init__(self, input_dim, embed_dim, num_actions, dropout=0.3):
         super().__init__()
-        self.mineclip = mineclip
+        self.output_dim = num_actions
         self.policy_head = nn.Sequential(
             nn.Linear(input_dim, embed_dim),
             nn.ReLU(),
+            nn.Dropout(p=dropout),
             nn.Linear(embed_dim, embed_dim),
             nn.ReLU(),
+            nn.Dropout(p=dropout),
             nn.Linear(embed_dim, num_actions)
         )
 
