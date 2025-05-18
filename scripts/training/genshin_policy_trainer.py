@@ -10,12 +10,21 @@ from data.dataset import CommonGameplayPromptActionDataset
 from datetime import datetime
 from model.genshin.policy import PolicyFromMineCLIP
 from model.mineclip.mineclip import MineCLIP
+from tools.utils import generate_experiment_name
 
 saved_weights = []
 
-def save_model(save_dir, model: nn.Module, optimizer: Optimizer, epoch, loss=None):
+import time
+
+saved_weights = []
+
+def save_model(save_dir, model: nn.Module, optimizer: Optimizer, epoch, loss=None, experiment_name="default_experiment"):
     """Saves the training checkpoint and maintains only 5 most recent weights."""
     os.makedirs(save_dir, exist_ok=True)
+
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"{experiment_name}_epoch{epoch}_{timestamp}.pt"
+    model_path = os.path.join(save_dir, filename)
 
     checkpoint = {
         'model_state_dict': model.state_dict(),
@@ -23,9 +32,6 @@ def save_model(save_dir, model: nn.Module, optimizer: Optimizer, epoch, loss=Non
         'epoch': epoch,
         'loss': loss
     }
-
-    model_name = f"{model.__class__.__name__}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_epoch_{epoch}.pt"
-    model_path = os.path.join(save_dir, model_name)
     torch.save(checkpoint, model_path)
     saved_weights.append(model_path)
 
@@ -34,6 +40,7 @@ def save_model(save_dir, model: nn.Module, optimizer: Optimizer, epoch, loss=Non
         oldest = saved_weights.pop(0)
         if os.path.exists(oldest):
             os.remove(oldest)
+
 
 def load_checkpoint(checkpoint_path, model: nn.Module, optimizer: Optimizer=None, device='cuda'):
     checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -64,12 +71,22 @@ def train_behavior_cloning_with_mineclip(
     mineclip.eval()
 
     os.makedirs(save_dir, exist_ok=True)
-    writer = SummaryWriter(log_dir=f"runs/{model.__class__.__name__}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
+    model_name = model.__class__.__name__
+    experiment_name = generate_experiment_name(
+        model_name=model_name,
+        experiment="MoveJumpAttack",
+        dataset="ConsistentV2",
+        prompt_style="ACTION",
+        seed=42,
+        include_epoch=False,
+        add_timestamp=False
+    )
+    writer = SummaryWriter(log_dir=f"runs/{experiment_name}")
 
     start_epoch = 0
     if resume_checkpoint:
         start_epoch, _ = load_checkpoint(resume_checkpoint, model, optimizer, device)
-        print(f"Resumed training from epoch {start_epoch}")
+        print(f"[RESUME] Training resumed from epoch {start_epoch}")
 
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0.0
@@ -79,8 +96,8 @@ def train_behavior_cloning_with_mineclip(
             action = data["action"].to(device)
 
             with torch.no_grad():
-                video_embed = mineclip.encode_video(video).to(device)
-                text_embed = mineclip.encode_text(text_prompt).to(device)
+                video_embed = mineclip.encode_video(video)
+                text_embed = mineclip.encode_text(text_prompt)
                 text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
 
             obs_embed = torch.cat([video_embed, text_embed], dim=-1)
@@ -96,20 +113,53 @@ def train_behavior_cloning_with_mineclip(
             global_step = epoch * len(dataloader) + batch_idx
             writer.add_scalar('training_loss', loss.item(), global_step)
 
+            # Gradient norm (useful for debugging training stability)
+            total_norm = 0.0
+            for p in model.parameters():
+                if p.grad is not None:
+                    param_norm = p.grad.data.norm(2)
+                    total_norm += param_norm.item() ** 2
+            total_norm = total_norm ** 0.5
+            writer.add_scalar("grad_norm", total_norm, global_step)
+
+            # Action distribution logging (multi-label)
+            predicted_labels = (torch.sigmoid(pred_embed) > 0.5).int()
+            for cls in range(model.output_dim):
+                count = predicted_labels[:, cls].sum().item()
+                writer.add_scalar(f'predicted_class_distribution/class_{cls}', count, global_step)
+
+            # Confidence: Mean max sigmoid score
+            confidences = torch.sigmoid(pred_embed)
+            mean_max_confidence = confidences.max(dim=1)[0].mean().item()
+            writer.add_scalar("prediction_confidence", mean_max_confidence, global_step)
+
+            # Log sample prompt and prediction
+            # Log raw predicted vector (logits or probabilities)
+            if global_step % 500 == 0:
+                writer.add_text("sample_prompt", text_prompt[0], global_step)
+
+                # Save full predicted output vector
+                pred_vector_str = ", ".join(f"{x:.4f}" for x in pred_embed[0].tolist())
+                writer.add_text("predicted_output_vector", pred_vector_str, global_step)
+
+                # Save true action vector
+                true_vector_str = ", ".join(f"{x:.1f}" for x in action[0].tolist())
+                writer.add_text("true_action_vector", true_vector_str, global_step)
+
             if (batch_idx + 1) % 10 == 0 or (batch_idx + 1) == len(dataloader):
-                print(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
+                print(f"[Epoch {epoch+1}/{num_epochs}] Batch {batch_idx+1}/{len(dataloader)} | Loss: {loss.item():.4f}")
 
         avg_loss = running_loss / len(dataloader)
-        print(f"Epoch [{epoch+1}/{num_epochs}] average loss: {avg_loss:.4f}")
+        print(f"[Epoch {epoch+1}/{num_epochs}] Average Loss: {avg_loss:.4f}")
 
-        if scheduler is not None:
+        if scheduler:
             scheduler.step()
             current_lr = scheduler.get_last_lr()[0]
-            print(f"Learning rate after epoch {epoch+1}: {current_lr}")
+            print(f"Learning Rate after Epoch {epoch+1}: {current_lr}")
             writer.add_scalar('learning_rate', current_lr, epoch + 1)
 
         if (epoch + 1) % 10 == 0 or (epoch + 1) == num_epochs:
-            save_model(save_dir, model, optimizer, epoch + 1, avg_loss)
+            save_model(save_dir, model, optimizer, epoch + 1, avg_loss, experiment_name)
 
     writer.close()
 
@@ -166,5 +216,5 @@ if __name__ == "__main__":
         criterion=criterion,
         save_dir=save_dir,
         num_epochs=num_epochs,
-        device=device
+        device=device,
     )
