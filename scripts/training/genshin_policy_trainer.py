@@ -1,20 +1,19 @@
 import torch
 import os
+import numpy as np
+import time
 from typing import Optional
 from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
+from tools.utils import generate_experiment_name
 from data.dataset import CommonGameplayPromptActionDataset
-from datetime import datetime
 from model.genshin.policy import PolicyFromMineCLIP
 from model.mineclip.mineclip import MineCLIP
-from tools.utils import generate_experiment_name
+from sklearn.metrics import f1_score, precision_score, recall_score
 
-saved_weights = []
-
-import time
 
 saved_weights = []
 
@@ -53,10 +52,12 @@ def load_checkpoint(checkpoint_path, model: nn.Module, optimizer: Optimizer=None
     loss = checkpoint.get('loss', None)
     return epoch, loss
 
+
 def train_behavior_cloning_with_mineclip(
     model: nn.Module,
     mineclip: MineCLIP,
     dataloader: DataLoader,
+    val_dataloader: DataLoader,  # NEW
     optimizer: Optimizer,
     scheduler: Optional[StepLR],
     criterion: nn.Module,
@@ -84,11 +85,13 @@ def train_behavior_cloning_with_mineclip(
     writer = SummaryWriter(log_dir=f"runs/{experiment_name}")
 
     start_epoch = 0
+    best_val_loss = float("inf")
     if resume_checkpoint:
         start_epoch, _ = load_checkpoint(resume_checkpoint, model, optimizer, device)
         print(f"[RESUME] Training resumed from epoch {start_epoch}")
 
     for epoch in range(start_epoch, num_epochs):
+        model.train()
         running_loss = 0.0
         for batch_idx, data in enumerate(dataloader):
             video = data['frames'].to(device)
@@ -113,7 +116,6 @@ def train_behavior_cloning_with_mineclip(
             global_step = epoch * len(dataloader) + batch_idx
             writer.add_scalar('training_loss', loss.item(), global_step)
 
-            # Gradient norm (useful for debugging training stability)
             total_norm = 0.0
             for p in model.parameters():
                 if p.grad is not None:
@@ -122,27 +124,19 @@ def train_behavior_cloning_with_mineclip(
             total_norm = total_norm ** 0.5
             writer.add_scalar("grad_norm", total_norm, global_step)
 
-            # Action distribution logging (multi-label)
             predicted_labels = (torch.sigmoid(pred_embed) > 0.5).int()
             for cls in range(model.output_dim):
                 count = predicted_labels[:, cls].sum().item()
                 writer.add_scalar(f'predicted_class_distribution/class_{cls}', count, global_step)
 
-            # Confidence: Mean max sigmoid score
             confidences = torch.sigmoid(pred_embed)
             mean_max_confidence = confidences.max(dim=1)[0].mean().item()
             writer.add_scalar("prediction_confidence", mean_max_confidence, global_step)
 
-            # Log sample prompt and prediction
-            # Log raw predicted vector (logits or probabilities)
             if global_step % 500 == 0:
                 writer.add_text("sample_prompt", text_prompt[0], global_step)
-
-                # Save full predicted output vector
                 pred_vector_str = ", ".join(f"{x:.4f}" for x in pred_embed[0].tolist())
                 writer.add_text("predicted_output_vector", pred_vector_str, global_step)
-
-                # Save true action vector
                 true_vector_str = ", ".join(f"{x:.1f}" for x in action[0].tolist())
                 writer.add_text("true_action_vector", true_vector_str, global_step)
 
@@ -150,7 +144,51 @@ def train_behavior_cloning_with_mineclip(
                 print(f"[Epoch {epoch+1}/{num_epochs}] Batch {batch_idx+1}/{len(dataloader)} | Loss: {loss.item():.4f}")
 
         avg_loss = running_loss / len(dataloader)
-        print(f"[Epoch {epoch+1}/{num_epochs}] Average Loss: {avg_loss:.4f}")
+        print(f"[Epoch {epoch+1}/{num_epochs}] Average Training Loss: {avg_loss:.4f}")
+        writer.add_scalar('epoch_training_loss', avg_loss, epoch + 1)
+
+        # Validation step
+        model.eval()
+        val_loss = 0.0
+        all_preds = []
+        all_labels = []
+
+        with torch.no_grad():
+            for val_batch in val_dataloader:
+                video = val_batch['frames'].to(device)
+                text_prompt = val_batch['text_prompt']
+                action = val_batch["action"].to(device)
+
+                video_embed = mineclip.encode_video(video)
+                text_embed = mineclip.encode_text(text_prompt)
+                text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
+                obs_embed = torch.cat([video_embed, text_embed], dim=-1)
+
+                pred_embed = model(obs_embed)
+                loss = criterion(pred_embed, action)
+                val_loss += loss.item()
+
+                pred_binary = (torch.sigmoid(pred_embed) > 0.5).int().cpu().numpy()
+                all_preds.append(pred_binary)
+                all_labels.append(action.cpu().numpy())
+
+        avg_val_loss = val_loss / len(val_dataloader)
+        writer.add_scalar('epoch_validation_loss', avg_val_loss, epoch + 1)
+        print(f"[Epoch {epoch+1}] Validation Loss: {avg_val_loss:.4f}")
+
+        all_preds = np.vstack(all_preds)
+        all_labels = np.vstack(all_labels)
+
+        f1 = f1_score(all_labels, all_preds, average="micro", zero_division=0)
+        precision = precision_score(all_labels, all_preds, average="micro", zero_division=0)
+        recall = recall_score(all_labels, all_preds, average="micro", zero_division=0)
+
+        writer.add_scalar('val_f1_score_micro', f1, epoch + 1)
+        writer.add_scalar('val_precision_micro', precision, epoch + 1)
+        writer.add_scalar('val_recall_micro', recall, epoch + 1)
+
+        if f1 < 1.0:
+            print(f"[Metrics] F1: {f1:.4f} | Precision: {precision:.4f} | Recall: {recall:.4f}")
 
         if scheduler:
             scheduler.step()
@@ -158,8 +196,11 @@ def train_behavior_cloning_with_mineclip(
             print(f"Learning Rate after Epoch {epoch+1}: {current_lr}")
             writer.add_scalar('learning_rate', current_lr, epoch + 1)
 
-        if (epoch + 1) % 10 == 0 or (epoch + 1) == num_epochs:
-            save_model(save_dir, model, optimizer, epoch + 1, avg_loss, experiment_name)
+        # Save best model
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            save_model(save_dir, model, optimizer, epoch + 1, avg_val_loss, experiment_name)
+            print(f"✅ [Checkpoint] Best model saved at epoch {epoch+1} with val_loss={avg_val_loss:.4f}")
 
     writer.close()
 
@@ -176,8 +217,16 @@ if __name__ == "__main__":
     save_dir = './saved_models'
 
     # Dataset and dataloader
-    dataset = CommonGameplayPromptActionDataset(root_dir=root_dir, image_size=image_size)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    full_dataset = CommonGameplayPromptActionDataset(root_dir=root_dir, image_size=image_size)
+    
+    val_ratio = 0.1  # 10% validation
+    val_size = int(len(full_dataset) * val_ratio)
+    train_size = len(full_dataset) - val_size
+
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # MineCLIP config and loading weights
     cfg = {
@@ -203,16 +252,17 @@ if __name__ == "__main__":
     )
 
     optimizer = torch.optim.Adam(policy.parameters(), lr=learning_rate)
-    # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+    scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
     
     criterion = nn.BCEWithLogitsLoss()
 
     train_behavior_cloning_with_mineclip(
         model=policy,
         mineclip=mineclip,
-        dataloader=dataloader,
+        dataloader=train_loader,
+        val_dataloader=val_loader,
         optimizer=optimizer,
-        scheduler=None,
+        scheduler=scheduler,
         criterion=criterion,
         save_dir=save_dir,
         num_epochs=num_epochs,
