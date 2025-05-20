@@ -1,5 +1,6 @@
 import pyautogui
 import time
+from typing import Optional
 from tools.genshin.mapping import KeyBinding, ActionMapping, HOLDABLE_ACTIONS
 
 
@@ -10,14 +11,22 @@ class GenshinImpactController:
         self.held_mouse_buttons = set()
 
     # Movement functions
-    def move(self, direction: KeyBinding):
+    def move(self, direction: KeyBinding, hold: Optional[float] = None):
         pyautogui.keyDown(direction.value)
+
+        if hold:
+            time.sleep(hold)
+            pyautogui.keyUp(direction.value)
 
     def jump(self):
         pyautogui.press(KeyBinding.JUMP.value)
 
-    def sprint(self):
+    def sprint(self, hold: Optional[float] = None):
         pyautogui.keyDown(KeyBinding.SPRINT.value)
+
+        if hold:
+            time.sleep(hold)
+            pyautogui.keyUp(KeyBinding.SPRINT.value)
 
     # Combat functions
     def normal_attack(self):

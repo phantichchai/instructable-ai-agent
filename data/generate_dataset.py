@@ -6,13 +6,12 @@ import cv2
 import mss
 import numpy as np
 import threading
-import pyautogui
 import shutil
 from queue import Queue
-from tools.genshin.mapping import ActionMapping, KeyBinding
+from tools.genshin.mapping import ActionMapping
 from tools.genshin.controller import GenshinImpactController
 from tools.window import get_window_coordinates
-from typing import Union
+from typing import List, Union
 
 class GenerateDataset:
     def __init__(
@@ -111,92 +110,122 @@ class GenerateDataset:
         self.text_prompts.append(text_prompt)
         print(f"Captured video for action: {actions}, saved to {video_filename}")
 
-    def perform_action(self, action_plan: list[tuple[ActionMapping, float]], duration):
-        """Performs multiple actions using the controller."""
-            
-        # Press and hold all actions for the duration
-        for action, delay in action_plan:
-            key_binding = KeyBinding[action.name]  # Get the corresponding key binding
-            # Perform the action by using the key binding
-            if key_binding in [KeyBinding.MOVE_FORWARD, KeyBinding.MOVE_LEFT, KeyBinding.MOVE_RIGHT, KeyBinding.MOVE_BACKWARD]:
-                self.controller.move(key_binding)
-            elif key_binding == KeyBinding.JUMP:
-                self.controller.jump()
-            elif key_binding == KeyBinding.SPRINT:
-                self.controller.sprint()
-            elif key_binding == KeyBinding.NORMAL_ATTACK:
-                self.controller.normal_attack()
-            elif key_binding == KeyBinding.ELEMENTAL_SKILL:
-                self.controller.elemental_skill()
-            elif key_binding == KeyBinding.ELEMENTAL_BURST:
-                self.controller.elemental_burst()
-            elif key_binding == KeyBinding.INTERACT:
-                self.controller.interact()
-            elif key_binding == KeyBinding.OPEN_MAP:
-                self.controller.open_map()
-            elif key_binding == KeyBinding.OPEN_INVENTORY:
-                self.controller.open_inventory()
-            elif key_binding.name.startswith("SWITCH_CHARACTER"):
-                self.controller.switch_character(key_binding.name[-1])
+    def perform_action(self, action_plan: list[tuple[ActionMapping, float]]):
+        def hold_and_release(action, delay):
+            self.controller.execute_action(action)
             time.sleep(delay)
-            
-        # Wait for the specified duration
-        time.sleep(duration)
+            self.controller.release_action(action)
 
-        # Release all keys after the duration
-        for action, _ in action_plan:
-            key_binding = KeyBinding[action.name]
-            if key_binding in [KeyBinding.MOVE_FORWARD, KeyBinding.MOVE_LEFT, KeyBinding.MOVE_RIGHT, KeyBinding.MOVE_BACKWARD]:
-                pyautogui.keyUp(key_binding.value)  # Release the key after the duration
-            elif action == ActionMapping.SPRINT:
-                pyautogui.keyUp(KeyBinding.SPRINT.value)  # Release sprint key
+        threads: List[threading.Thread] = []
+        for action, delay in action_plan:
+            t = threading.Thread(target=hold_and_release, args=(action, delay))
+            t.start()
+            threads.append(t)
+
+        for t in threads:
+            t.join()
+    
+    def perform_action_timeline(self, action_plan: list[dict]):
+        """
+        Execute overlapping timed actions.
+
+        Each action dict should have:
+        - 'action': ActionMapping
+        - 'start': float (when to press, in seconds)
+        - 'duration': float (how long to hold)
+        """
+        import threading
+        import time
+
+        def execute_timed(action: ActionMapping, start: float, duration: float):
+            time.sleep(start)
+            self.controller.execute_action(action)
+            time.sleep(duration)
+            self.controller.release_action(action)
+
+        threads: List[threading.Thread] = []
+        for entry in action_plan:
+            action = entry["action"]
+            start = entry.get("start", 0.0)
+            duration = entry.get("duration", 0.2)
+
+            t = threading.Thread(target=execute_timed, args=(action, start, duration))
+            t.start()
+            threads.append(t)
+
+        for t in threads:
+            t.join()
+
 
     def generate(
         self,
-        action_plan: list[Union[ActionMapping, tuple[ActionMapping, float]]],
-        text_prompt,
+        action_plan: Union[
+            list[Union[ActionMapping, tuple[ActionMapping, float]]],
+            list[dict]
+        ],
+        text_prompt: str,
         perform_duration: float,
         video_duration: float = None,
         record_video: bool = True,
     ):
         """
-        Performs the action and optionally records it with a text prompt in a separate thread.
+        Executes a single or multiple actions with optional video recording.
+
+        Supports both simple list-based action plans and timeline-based overlapping action plans.
 
         Args:
-            actions: A single ActionMapping or a list of ActionMappings.
-            text_prompt: A description of the action for labeling.
-            perform_duration: Duration of the action in seconds.
-            video_duration: Optional duration of the video recording in seconds. 
-                            If None, defaults to perform_duration.
-            record_video: Whether to record the video (default is True).
+            action_plan: A list of ActionMappings, (ActionMapping, duration) tuples, or timeline dicts.
+            text_prompt: Text describing the action for labeling the video.
+            perform_duration: Default duration for actions that don't specify one.
+            video_duration: Duration of the recording. Defaults to perform_duration.
+            record_video: Whether to record video.
         """
-        if isinstance(action_plan, ActionMapping):
-            action_plan = [(action_plan, perform_duration)]
-        elif isinstance(action_plan, list):
+
+        is_timeline = (
+            isinstance(action_plan, list)
+            and len(action_plan) > 0
+            and isinstance(action_plan[0], dict)
+            and "action" in action_plan[0]
+        )
+
+        if is_timeline:
+            # Validate timeline structure
+            for entry in action_plan:
+                if not isinstance(entry, dict) or "action" not in entry or "start" not in entry or "duration" not in entry:
+                    raise ValueError(f"Invalid timeline entry: {entry}")
+
+            actions = [entry["action"] for entry in action_plan]
+
+        else:
+            # Normalize simple action list into (ActionMapping, duration) tuples
+            if isinstance(action_plan, ActionMapping):
+                action_plan = [action_plan]
+
             normalized_actions = []
             for item in action_plan:
-                if isinstance(item, tuple):
-                    normalized_actions.append(item)
-                elif isinstance(item, ActionMapping):
+                if isinstance(item, ActionMapping):
                     normalized_actions.append((item, perform_duration))
+                elif isinstance(item, tuple) and isinstance(item[0], ActionMapping):
+                    normalized_actions.append(item)
                 else:
-                    raise ValueError(f"Invalid action type: {item}")
+                    raise ValueError(f"Invalid action entry: {item}")
             action_plan = normalized_actions
-        else:
-            raise ValueError(f"Unsupported actions type: {type(action_plan)}")            
+            actions = [a for a, _ in action_plan]
 
-        # Use perform_duration if video_duration is not specified
         if video_duration is None:
             video_duration = perform_duration
 
         if record_video:
-            actions = [a for a, _ in action_plan]
             video_thread = threading.Thread(
                 target=self.capture_video, args=(actions, text_prompt, video_duration)
             )
             video_thread.start()
 
-        self.perform_action(action_plan, perform_duration)
+        # Perform actions
+        if is_timeline:
+            self.perform_action_timeline(action_plan)
+        else:
+            self.perform_action(action_plan)
 
         if record_video:
             video_thread.join()
