@@ -7,7 +7,7 @@ from tools.genshin.controller import GenshinImpactController
 
 controller = GenshinImpactController()
 dir = os.path.join("dataset", "sprint")
-dataset_generator = GenerateDataset(controller=controller, dataset_dir=dir, fps=8, overwrite=True)
+dataset_generator = GenerateDataset(controller=controller, dataset_dir=dir, fps=8, overwrite=False)
 
 pyautogui.keyDown('alt')
 pyautogui.press('tab')
