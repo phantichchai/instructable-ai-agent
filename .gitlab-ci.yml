@@ -1,0 +1,35 @@
+image: registry.gitlab.cs.internal.local:5050/phantichchai/instructable-ai-agent/gitlab-ci-image:latest
+
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_IMAGE: fastapi-gpu-app:latest
+
+build:
+  stage: build
+  tags:
+    - target-lan
+  script:
+    - echo "CI is using custom image"
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.cs.internal.local/phantichchai/instructable-ai-agent.git
+    - cd instructable-ai-agent
+    - git switch deploy
+    - dvc remote modify minio access_key_id $AWS_ACCESS_KEY_ID
+    - dvc remote modify minio secret_access_key $AWS_SECRET_ACCESS_KEY
+    - dvc remote modify minio endpointurl $DVC_ENDPOINT_URL
+    - dvc pull
+    - docker build -t $DOCKER_IMAGE .
+
+deploy:
+  stage: deploy
+  tags:
+    - target-lan
+  script:
+    - echo "Deploying using docker-compose"
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.cs.internal.local/phantichchai/instructable-ai-agent.git
+    - cd instructable-ai-agent
+    - git switch deploy
+    - docker compose down
+    - docker compose up -d

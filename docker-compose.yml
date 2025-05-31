@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   fastapi-gpu-app:
-    image: fastapi-gpu-app:v0.1.1
+    image: fastapi-gpu-app:latest
     container_name: fastapi-gpu-app
     build:
       context: .

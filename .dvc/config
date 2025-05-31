@@ -2,3 +2,4 @@
     remote = minio
 ['remote "minio"']
     url = s3://instructable-ai-agent
+    ssl_verify = /usr/local/share/ca-certificates/my-rootCA.crt
