@@ -14,12 +14,13 @@ pyautogui.press('tab')
 time.sleep(0.1)
 pyautogui.keyUp('alt')
 
-for switch in [2, 3, 4, 1]:
-    dataset_generator.generate(
-        ActionMapping[f'SWITCH_CHARACTER_{switch}'], 
-        f"[ACTION] {ActionPromptMapping[ActionMapping[f'SWITCH_CHARACTER_{switch}']]}", 
-        perform_duration=1
-    )
+for _ in range(4):
+    for switch in [2, 3, 4, 1]:
+        dataset_generator.generate(
+            ActionMapping[f'SWITCH_CHARACTER_{switch}'], 
+            f"[ACTION] {ActionPromptMapping[ActionMapping[f'SWITCH_CHARACTER_{switch}']]}", 
+            perform_duration=1
+        )
 
 
 dataset_generator.save_metadata()
