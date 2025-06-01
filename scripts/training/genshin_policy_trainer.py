@@ -75,8 +75,8 @@ def train_behavior_cloning_with_mineclip(
     model_name = model.__class__.__name__
     experiment_name = generate_experiment_name(
         model_name=model_name,
-        experiment="MoveJumpAttackSprint",
-        dataset="ConsistentV2.1",
+        experiment="AllSingleAction",
+        dataset="ConsistentV2.2",
         prompt_style="ACTION",
         seed=42,
         include_epoch=False,
