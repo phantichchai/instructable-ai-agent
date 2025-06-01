@@ -21,7 +21,7 @@ build:
     - dvc remote modify minio access_key_id $AWS_ACCESS_KEY_ID
     - dvc remote modify minio secret_access_key $AWS_SECRET_ACCESS_KEY
     - dvc remote modify minio endpointurl $DVC_ENDPOINT_URL
-    - dvc pull saved_models/mineclip/attn_new.pth saved_models/policy/saved_models/policy/PolicyFromMineCLIP_exp-AllSingleAction_data-ConsistentV2.2_prompt-ACTION_seed-42_epoch150_20250602-004342.pt
+    - dvc pull saved_models/mineclip/attn_new.pth saved_models/policy/PolicyFromMineCLIP_exp-AllSingleAction_data-ConsistentV2.2_prompt-ACTION_seed-42_epoch150_20250602-004342.pt
     - docker build -t $DOCKER_IMAGE .
 
 deploy:
