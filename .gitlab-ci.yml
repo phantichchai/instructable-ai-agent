@@ -11,11 +11,13 @@ build:
   stage: build
   tags:
     - target-lan
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      when: always
   script:
     - echo "CI is using custom image"
-    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.cs.internal.local/phantichchai/instructable-ai-agent.git
+    - git clone --branch deploy --depth 1 https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.cs.internal.local/phantichchai/instructable-ai-agent.git
     - cd instructable-ai-agent
-    - git switch deploy
     - dvc remote modify minio access_key_id $AWS_ACCESS_KEY_ID
     - dvc remote modify minio secret_access_key $AWS_SECRET_ACCESS_KEY
     - dvc remote modify minio endpointurl $DVC_ENDPOINT_URL
@@ -26,10 +28,12 @@ deploy:
   stage: deploy
   tags:
     - target-lan
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "deploy"'
+      when: always
   script:
     - echo "Deploying using docker-compose"
-    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.cs.internal.local/phantichchai/instructable-ai-agent.git
+    - git clone --branch deploy --depth 1 https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.cs.internal.local/phantichchai/instructable-ai-agent.git
     - cd instructable-ai-agent
-    - git switch deploy
     - docker compose down
     - docker compose up -d
