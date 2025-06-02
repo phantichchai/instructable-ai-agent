@@ -76,7 +76,7 @@ def train_behavior_cloning_with_mineclip(
     experiment_name = generate_experiment_name(
         model_name=model_name,
         experiment="AllSingleAction",
-        dataset="ConsistentV2.2",
+        dataset="ConsistentV2.3",
         prompt_style="ACTION",
         seed=42,
         include_epoch=False,
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     root_dir = './dataset'
     image_size = (160, 256)
     batch_size = 8
-    num_epochs = 250
+    num_epochs = 350
     learning_rate = 1e-3
     save_dir = './saved_models'
 
