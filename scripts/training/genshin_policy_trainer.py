@@ -75,7 +75,7 @@ def train_behavior_cloning_with_mineclip(
     model_name = model.__class__.__name__
     experiment_name = generate_experiment_name(
         model_name=model_name,
-        experiment="AllSingleAction",
+        experiment="SingleAction_slr1e-3g1e-1",
         dataset="ConsistentV2.3",
         prompt_style="ACTION",
         seed=42,
@@ -162,13 +162,13 @@ def train_behavior_cloning_with_mineclip(
                 video_embed = mineclip.encode_video(video)
                 text_embed = mineclip.encode_text(text_prompt)
                 text_embed = text_embed / text_embed.norm(dim=1, keepdim=True)
-                obs_embed = torch.cat([video_embed, text_embed], dim=-1)
 
+                obs_embed = torch.cat([video_embed, text_embed], dim=-1)
                 pred_embed = model(obs_embed)
                 loss = criterion(pred_embed, action)
                 val_loss += loss.item()
 
-                pred_binary = (torch.sigmoid(pred_embed) > 0.5).int().cpu().numpy()
+                pred_binary = (torch.sigmoid(pred_embed ) > 0.5).int().cpu().numpy()
                 all_preds.append(pred_binary)
                 all_labels.append(action.cpu().numpy())
 
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     root_dir = './dataset'
     image_size = (160, 256)
     batch_size = 8
-    num_epochs = 350
+    num_epochs = 800
     learning_rate = 1e-3
     save_dir = './saved_models'
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     )
 
     optimizer = torch.optim.Adam(policy.parameters(), lr=learning_rate)
-    scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+    scheduler = StepLR(optimizer, step_size=200, gamma=0.1)
     
     criterion = nn.BCEWithLogitsLoss()
 

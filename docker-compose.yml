@@ -19,13 +19,13 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - POLICY_PATH=saved_models/policy.pt
 
-  # tensorboard:
-  #   image: tensorflow/tensorflow:latest
-  #   container_name: tensorboard
-  #   command: >
-  #     bash -c "tensorboard --logdir=/app/runs --host=0.0.0.0 --port=6006"
-  #   ports:
-  #     - "6006:6006"
-  #   volumes:
-  #     - ./runs:/app/runs
-  #   restart: unless-stopped
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: tensorboard
+    command: >
+      bash -c "tensorboard --logdir=/app/runs --host=0.0.0.0 --port=6006"
+    ports:
+      - "6006:6006"
+    volumes:
+      - ./runs:/app/runs
+    restart: unless-stopped

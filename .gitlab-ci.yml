@@ -35,5 +35,5 @@ deploy:
     - echo "Deploying using docker-compose"
     - git clone --branch deploy --depth 1 https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.cs.internal.local/phantichchai/instructable-ai-agent.git
     - cd instructable-ai-agent
-    - docker compose down
-    - docker compose up -d
+    - docker compose stop fastapi-gpu-app
+    - docker compose up -d fastapi-gpu-app

@@ -17,7 +17,7 @@ COPY /data/dataset.py /app/data
 COPY /tools/utils.py /app/tools
 # COPY model_weights.pt /app/
 COPY saved_models/mineclip/attn_new.pth /app/saved_models/mineclip/
-COPY saved_models/policy/PolicyFromMineCLIP_exp-AllSingleAction_data-ConsistentV2.3_prompt-ACTION_seed-42_epoch301_20250602-041932.pt /app/saved_models/policy.pt
+COPY saved_models/policy/PolicyFromMineCLIP_exp-SingleAction_slr1e-3g1e-1_data-ConsistentV2.3_prompt-ACTION_seed-42_epoch137_20250605-100943.pt /app/saved_models/policy.pt
 
 # Expose the port on which the app will run
 EXPOSE 8000
